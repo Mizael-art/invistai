@@ -23,7 +23,7 @@ try:
         check("categoria Criptomoedas: só itens de cripto", pg.locator("article").count() >= 1 and all(c == "crypto" for c in pg.locator("article").evaluate_all("e=>e.map(x=>x.dataset.cat)")))
         pg.goto(B + "/noticias?q=ibovespa"); pg.wait_for_selector("article, [role=status]", timeout=20000)
         check("busca no feed RSS", pg.locator("article").count() >= 1 and all("ibovespa" in x.lower() for x in pg.locator("article h2").all_inner_texts()))
-        pg.goto(B + "/"); pg.wait_for_selector(".lrow", timeout=20000)
+        pg.goto(B + "/"); pg.locator("main .card", has_text="Notícias recentes").locator(".lrow").first.wait_for(timeout=20000); pg.wait_for_load_state("networkidle")
         check("Início: bloco de notícias recentes com RSS", pg.locator("main .card", has_text="Notícias recentes").locator(".lrow").count() == 5)
         pg.goto(B + "/mercado/bitcoin"); pg.wait_for_selector("#noticias", timeout=20000); nt = pg.inner_text("#noticias")
         check("detalhe do ativo: notícias relacionadas pelo nome (Bitcoin)", "Bitcoin" in nt and "Ibovespa" not in nt)
