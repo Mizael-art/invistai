@@ -13,7 +13,7 @@ try:
         pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("request", lambda r: api.append(r.url) if "/api/" in r.url else None)
         pg.goto(B + "/vip"); pg.wait_for_selector("h1")
         check("título 'Em breve' e rótulo VIP", pg.inner_text("h1") == "Em breve" and pg.inner_text(".soon .bd") == "VIP")
-        check("menu visível e 'VIP' ativo (sidebar)", pg.locator("aside a.nav").count() == 10 and pg.locator("aside a.nav.on").inner_text().strip() == "VIP")
+        check("menu visível e 'VIP' ativo (sidebar)", pg.locator("aside a.nav").count() == 11 and pg.locator("aside a.nav.on").inner_text().strip() == "VIP")
         body = pg.inner_text("main")
         check("sem sinais, entradas/alvos/stops, planos, preços, assinatura, pagamento, Telegram ou IA ilimitada", not re.search(FAKE, body, re.I), body[:120].replace("\n", " "))
         check("sem tabelas, cartões de sinal ou elementos de checkout", pg.locator("main table, main form, main input, main progress, main [role=progressbar]").count() == 0)

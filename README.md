@@ -70,6 +70,14 @@ Sessão em cookie HttpOnly (Supabase SSR); rotas privadas protegidas no middlewa
   `insert into billing_private.settings (key,value) values ('secret_sha256', encode(sha256('<BILLING_DB_SECRET>'::bytea),'hex')) on conflict (key) do update set value = excluded.value;`
 - Configuração na Stripe: criar os produtos PRO e MAX com preço mensal recorrente em BRL; criar o endpoint `https://<domínio>/api/billing/webhook` com os eventos `checkout.session.completed`, `customer.subscription.created|updated|deleted`, `invoice.paid`, `invoice.payment_failed`, `charge.refunded`; ativar o Portal do cliente (troca de plano e cancelamento).
 
+## TRADEON AI e motor de análise (ecossistema — Etapa 2)
+- **Motor próprio** (`lib/engine`): indicadores (EMA 20/50/200, RSI, MACD, ADX/DMI, ATR, Bollinger, volatilidade realizada, volume relativo), estrutura (swings, HH/HL/LH/LL, BOS/CHOCH), liquidez (topos/fundos iguais, varridas), zona premium/desconto, suportes/resistências, consolidação multi-timeframe (15m/1h/4h/1d) com evidências a favor/contra/risco, score de qualidade e níveis técnicos de referência; scanner dos pares USDT mais líquidos.
+- **Fontes por classe de ativo**: cripto — dados públicos da Binance (`data-api.binance.vision`); forex — taxas de referência diárias do BCE (só fechamento). Ações, FIIs e ETFs: interface pronta (`MarketProvider`), **sem fonte integrada** — o motor responde `unsupported_asset_class` em vez de inventar números.
+- **API pública do motor**: `GET /api/engine/snapshot?symbol=BTC[&class=crypto|forex]` (limitada por IP).
+- **Orquestração** (`lib/ai`): instruções próprias, ferramentas do backend (`get_asset_quote`, `get_asset_indicators`, `get_asset_history`, `compare_assets`, `scan_opportunities`, `get_market_overview`, `search_market_news`, `get_user_portfolio`, `get_economic_calendar`), adaptadores OpenAI (ou compatível) e Anthropic. Os cartões da interface são montados com os dados das ferramentas, não com o texto do modelo.
+- **Cota**: `ai_try_consume()` no banco antes de chamar o modelo (FREE = 3 mensagens por conta). Se o modelo falhar, a mensagem é devolvida por `ai_release(secret)`. Uso justo para PRO/MAX: 8/min e 300/dia por instância.
+- **Banco** (migração 12): `ai_conversations`, `ai_messages` (RLS: só as próprias; só `saved` é editável), `ai_requests` (uso/custo para o painel admin, gravado só pelo servidor).
+
 ## Pendências / dependências externas
 - **Validar com serviços reais:** projeto Supabase + SMTP (login, cadastro, e-mails de confirmação/recuperação), plano de produção da NewsAPI (o plano gratuito não permite uso em produção), símbolos no TradingView real, respostas reais da CoinGecko.
 - **Configurar:** e-mail oficial de suporte (`SUPPORT_EMAIL`).

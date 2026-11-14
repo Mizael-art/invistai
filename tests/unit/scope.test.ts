@@ -6,9 +6,9 @@ import path from "node:path";
 const root = path.resolve(__dirname, "../..");
 const FORBIDDEN = /subscri|assinatur|payment|pagament|signal|sinais|checkout|telegram|stripe|pix\b|course|curso|ebook|lesson|aula/i;
 describe("escopo: VIP e Aprender somente 'Em breve'", () => {
-  it("migrações não criam tabelas de assinatura, pagamento, sinais, cursos ou Telegram", () => {
-    const dir = path.join(root, "supabase/migrations");
-    for (const f of readdirSync(dir)) expect(readFileSync(path.join(dir, f), "utf8"), f).not.toMatch(FORBIDDEN);
+  it("migrações da base (antes do ecossistema PRO/MAX) não criam tabelas de assinatura, pagamento, sinais, cursos ou Telegram", () => {
+    const dir = path.join(root, "supabase/migrations");   // a partir de 20260101000010 o ecossistema (planos/IA/calls) é escopo aprovado
+    for (const f of readdirSync(dir).filter((f) => f < "20260101000010")) expect(readFileSync(path.join(dir, f), "utf8"), f).not.toMatch(FORBIDDEN);
   });
   it("não existem rotas de checkout/assinatura/sinais nem serviços correspondentes", () => {
     for (const p of ["app/(app)/vip/checkout", "app/(app)/vip/planos", "app/(app)/aprender/cursos", "app/vip", "app/aprender", "app/api/checkout", "app/api/subscriptions", "app/api/signals", "services/billing", "services/signals", "services/telegram"])

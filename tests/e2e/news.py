@@ -78,7 +78,7 @@ try:
         # falhas de provedor
         for port, txt, name in [(3402, "Limite de requisições", "429"), (3403, "Provedor indisponível", "500")]:
             f = b.new_page(); f.goto(f"http://127.0.0.1:{port}/noticias"); f.wait_for_selector(".note", timeout=15000)
-            check(f"provedor {name}: aviso + 'Tentar novamente', chips e navegação preservados", txt in f.inner_text("main") and f.get_by_role("button", name="Tentar novamente").count() >= 1 and f.locator("nav[aria-label=Categorias] a").count() == 5 and f.locator("aside a.nav").count() == 10)
+            check(f"provedor {name}: aviso + 'Tentar novamente', chips e navegação preservados", txt in f.inner_text("main") and f.get_by_role("button", name="Tentar novamente").count() >= 1 and f.locator("nav[aria-label=Categorias] a").count() == 5 and f.locator("aside a.nav").count() == 11)
         nk = b.new_page(); nk.goto("http://127.0.0.1:3404/noticias"); nk.wait_for_selector(".note", timeout=15000)
         check("sem NEWS_API_KEY: 'provedor não configurado' (sem retry) e página funcional", "Provedor não configurado" in nk.inner_text("main") and nk.get_by_role("button", name="Tentar novamente").count() == 0 and nk.get_by_role("link", name="Mercado").first.is_visible())
         pt = b.new_page(); pt.goto("http://127.0.0.1:3405/noticias"); wait_cards(pt, 25)

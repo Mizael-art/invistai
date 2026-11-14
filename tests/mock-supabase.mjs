@@ -32,7 +32,8 @@ const subs = new Map(), payments = [], subEvents = [], aiUsage = new Map(), webh
 const PLAN_LIMIT = { free: 3, pro: null, max: null };
 const curPlan = (uid) => { const s = subs.get(uid); return s && ["pro", "max"].includes(s.plan_id) && ["active", "trialing", "past_due"].includes(s.status) && (!s.current_period_end || new Date(s.current_period_end) > new Date()) ? s.plan_id : "free"; };
 const subRow = (uid) => subs.get(uid) || { plan_id: "free", status: "none", provider: null, provider_customer_id: null, provider_subscription_id: null, started_at: null, current_period_start: null, current_period_end: null, cancel_at_period_end: false, canceled_at: null, updated_at: new Date().toISOString() };
-const resetBilling = () => { subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
+const aiTables = { ai_conversations: [], ai_messages: [] }; let aiSeq = 0; const aiRpc = [];
+const resetBilling = () => { aiTables.ai_conversations.length = 0; aiTables.ai_messages.length = 0; aiRpc.length = 0; subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
 const readBody = (req) => new Promise((r) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => { try { r(JSON.parse(d || "{}")); } catch { r({}); } }); });
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), send = (c, b, h = {}) => { res.writeHead(c, { "content-type": "application/json", ...h }); res.end(b === undefined ? "" : JSON.stringify(b)); };
@@ -47,6 +48,8 @@ http.createServer(async (req, res) => {
   if (u.pathname === "/__lifetime") { lifetime = +(u.searchParams.get("s") || 3600); return send(200, { lifetime }); }
   if (u.pathname === "/__invalidate") { invalidateAll = true; refreshTokens.clear(); return send(200, { ok: true }); }
   if (u.pathname === "/__confirm") { const c = created.get(u.searchParams.get("email")); if (c) c.pending = false; return send(200, { ok: !!c }); }
+  if (u.pathname === "/__ai") return send(200, { ...aiTables, rpc: aiRpc });
+  if (u.pathname === "/__ai_usage") { const us = lookup((u.searchParams.get("email") || "").toLowerCase()); if (!us) return send(404, {}); aiUsage.set(us.id, +(u.searchParams.get("used") || 0)); return send(200, { ok: true }); }
   if (u.pathname === "/__billing") return send(200, { subs: Object.fromEntries(subs), payments, subEvents, aiUsage: Object.fromEntries(aiUsage), webhookEvents: [...webhookEvents] });
   if (u.pathname === "/__set_plan") { const us = lookup((u.searchParams.get("email") || "").toLowerCase()); if (!us) return send(404, {}); const plan = u.searchParams.get("plan") || "free"; subs.set(us.id, { ...subRow(us.id), plan_id: plan, status: plan === "free" ? "none" : (u.searchParams.get("status") || "active"), current_period_end: u.searchParams.get("end") || new Date(Date.now() + 30 * 864e5).toISOString() }); return send(200, { ok: true }); }
   if (u.pathname === "/__reset") { resetBilling(); invalidateAll = false; revoked = new Set(); refreshTokens = new Map(); created.clear(); lifetime = 3600; pwOverride.clear(); issued.clear(); usedRecovery.clear(); stats.passwordCalls = {}; stats.signupCalls = {}; stats.signups = []; stats.resends = []; stats.recovers = []; stats.passwordUpdates = []; stats.logoutScopes = []; stats.profileWrites = []; stats.prefWrites = []; profiles.clear(); prefsStore.clear(); favs.length = 0; favSeq = 0; notifs.length = 0; notifSeq = 0; stats.favoriteWrites = []; stats.favoriteDeletes = []; stats.refreshCalls = stats.logouts = stats.userCalls = stats.verifies = 0; return send(200, { ok: true }); }
@@ -197,6 +200,48 @@ http.createServer(async (req, res) => {
     if (u.pathname.endsWith("ai_quota")) return send(200, [{ plan: p, used, msg_limit: lim, remaining: lim === null ? null : Math.max(lim - used, 0) }]);
     if (lim !== null && used >= lim) return send(200, [{ allowed: false, plan: p, used, msg_limit: lim, remaining: 0 }]);
     aiUsage.set(sub, ++used); return send(200, [{ allowed: true, plan: p, used, msg_limit: lim, remaining: lim === null ? null : Math.max(lim - used, 0) }]);
+  }
+  // ----- Etapa 2: conversas/mensagens da IA (RLS simulada: só as próprias; mensagens só alteram `saved`) -----
+  const aiT = u.pathname.match(/^\/rest\/v1\/(ai_conversations|ai_messages)$/);
+  if (aiT) {
+    const tbl = aiTables[aiT[1]], sub = subOf(req); if (!sub) return send(401, { code: "42501", message: "permission denied" });
+    const filters = [...u.searchParams.entries()].filter(([k, v]) => !["select", "order", "limit", "offset"].includes(k) && v.startsWith("eq.")).map(([k, v]) => [k, v.slice(3)]);
+    const match = (r) => r.user_id === sub && filters.every(([k, v]) => String(r[k]) === v);
+    const prefer = req.headers.prefer || ""; const rep = prefer.includes("return=representation");
+    const cols = (u.searchParams.get("select") || "*").split(",").map((c) => c.trim());
+    const pick = (r) => (cols[0] === "*" ? (({ seq, ...x }) => x)(r) : Object.fromEntries(cols.map((c) => [c, r[c]])));
+    const out = (rows, code = 200) => wantsObject ? (rows.length === 1 ? send(code, pick(rows[0])) : send(406, { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned", details: `The result contains ${rows.length} rows` })) : send(code, rows.map(pick));
+    if (req.method === "GET") {
+      let rows = tbl.filter(match); const o = u.searchParams.get("order") || "";
+      if (o) { const [col, dir] = o.split("."); rows = [...rows].sort((a, b) => (a[col] === b[col] ? a.seq - b.seq : a[col] < b[col] ? -1 : 1) * (dir === "desc" ? -1 : 1)); }
+      const lim = +(u.searchParams.get("limit") || 0); if (lim) rows = rows.slice(0, lim); return out(rows);
+    }
+    if (req.method === "POST") {
+      const body = await readBody(req); const created = [];
+      for (const b of Array.isArray(body) ? body : [body]) {
+        const row = { ...b, user_id: b.user_id ?? sub };
+        if (row.user_id !== sub) return send(403, { code: "42501", message: "new row violates row-level security policy" });
+        if (aiT[1] === "ai_messages") { if (!aiTables.ai_conversations.some((c) => c.id === row.conversation_id && c.user_id === sub)) return send(403, { code: "42501", message: "new row violates row-level security policy" }); if (!["user", "assistant"].includes(row.role)) return send(400, { code: "23514" }); row.blocks ??= []; row.saved ??= false; }
+        else row.title ??= "Nova conversa";
+        const now = new Date(Date.now() + aiSeq).toISOString(); Object.assign(row, { id: crypto.randomUUID(), created_at: now, updated_at: now, seq: ++aiSeq }); tbl.push(row); created.push(row);
+      }
+      return rep ? out(created, 201) : send(201);
+    }
+    if (req.method === "PATCH") {
+      const body = await readBody(req); const allowed = aiT[1] === "ai_messages" ? ["saved"] : ["title", "updated_at"];
+      if (Object.keys(body).some((k) => !allowed.includes(k))) return send(403, { code: "42501", message: "permission denied" });
+      const rows = tbl.filter(match); rows.forEach((r) => Object.assign(r, body)); return rep ? out(rows) : send(204);
+    }
+    if (req.method === "DELETE") {
+      const rows = tbl.filter(match); for (const r of rows) { tbl.splice(tbl.indexOf(r), 1); if (aiT[1] === "ai_conversations") for (let i = aiTables.ai_messages.length - 1; i >= 0; i--) if (aiTables.ai_messages[i].conversation_id === r.id) aiTables.ai_messages.splice(i, 1); }
+      return rep ? out(rows) : send(204);
+    }
+  }
+  if (u.pathname === "/rest/v1/rpc/ai_release" || u.pathname === "/rest/v1/rpc/ai_log_request") {
+    const b = await readBody(req), sub = subOf(req); if (b.secret !== BILLING_SECRET) return send(403, { code: "42501", message: "billing_forbidden" });
+    aiRpc.push({ fn: u.pathname.split("/").pop(), user: sub, ...Object.fromEntries(Object.entries(b).filter(([k]) => k !== "secret")) });
+    if (u.pathname.endsWith("ai_release") && sub) aiUsage.set(sub, Math.max((aiUsage.get(sub) || 0) - 1, 0));
+    return send(200, null);
   }
   if (u.pathname.startsWith("/rest/v1/rpc/billing_")) {
     const b = await readBody(req), fn = u.pathname.slice("/rest/v1/rpc/".length);

@@ -29,7 +29,7 @@ beforeAll(async () => {
 describe("migrações em Postgres real", () => {
   it("todas aplicam em ordem e as tabelas têm RLS ligada", async () => {
     const r = await db.query<{ relname: string; relrowsecurity: boolean }>(`select relname, relrowsecurity from pg_class where relnamespace='public'::regnamespace and relkind='r' order by 1`);
-    expect(r.rows.map((x) => x.relname)).toEqual(["admin_audit_logs", "ai_usage", "app_admins", "favorites", "notifications", "payment_webhook_events", "profiles", "subscription_events", "subscription_payments", "subscription_plans", "subscriptions", "user_preferences"]);
+    expect(r.rows.map((x) => x.relname)).toEqual(["admin_audit_logs", "ai_conversations", "ai_messages", "ai_requests", "ai_usage", "app_admins", "favorites", "notifications", "payment_webhook_events", "profiles", "subscription_events", "subscription_payments", "subscription_plans", "subscriptions", "user_preferences"]);
     expect(r.rows.every((x) => x.relrowsecurity)).toBe(true);
   });
   it("cadastro cria perfil (nome; telefone só em E.164) e notificação de boas-vindas", async () => {
@@ -205,5 +205,43 @@ describe("Etapa 1 — escrita de cobrança protegida por segredo de servidor", (
   it("cancelamento: status canceled devolve ao FREE", async () => {
     await sync(S, "pro", "canceled");
     expect((await db.query<{ p: string }>("select public.current_plan($1) p", [U])).rows[0].p).toBe("free");
+  });
+});
+
+describe("Etapa 2 — conversas da TRADEON AI (Postgres real)", () => {
+  const S = "s".repeat(40), C = "66666666-6666-4666-8666-666666666666", D = "77777777-7777-4777-8777-777777777777";
+  beforeAll(async () => { await db.query("insert into auth.users (id, email) values ($1, 'c@t.com'), ($2, 'd@t.com')", [C, D]); });
+  it("usuário cria conversa e mensagens próprias; outro usuário não lê nem escreve nelas", async () => {
+    const conv = await as(C, async () => (await db.query<{ id: string }>("insert into public.ai_conversations (title) values ('BTC hoje') returning id")).rows[0].id);
+    await as(C, async () => { await db.query("insert into public.ai_messages (conversation_id, role, content) values ($1, 'user', 'Analise BTC'), ($1, 'assistant', 'ok')", [conv]); });
+    await as(D, async () => {
+      expect((await db.query("select * from public.ai_conversations")).rows).toEqual([]);
+      expect((await db.query("select * from public.ai_messages")).rows).toEqual([]);
+      expect(await fails(db.query("insert into public.ai_messages (conversation_id, role, content) values ($1, 'user', 'invasão')", [conv]))).toBe(true);
+      expect(await fails(db.query("insert into public.ai_messages (conversation_id, user_id, role, content) values ($1, $2, 'user', 'x')", [conv, C]))).toBe(true);
+      await db.query("delete from public.ai_conversations where id = $1", [conv]);
+    });
+    await as(C, async () => {
+      expect((await db.query("select role from public.ai_messages order by created_at, role desc")).rows.length).toBe(2);
+      expect(await fails(db.query("update public.ai_messages set content = 'adulterado'"))).toBe(true);
+      await db.query("update public.ai_messages set saved = true where role = 'assistant'");
+      expect((await db.query<{ n: number }>("select count(*)::int n from public.ai_messages where saved")).rows[0].n).toBe(1);
+      expect(await fails(db.query("insert into public.ai_messages (conversation_id, role, content) values ($1, 'system', 'x')", [conv]))).toBe(true);
+      await db.query("delete from public.ai_conversations where id = $1", [conv]);
+      expect((await db.query("select * from public.ai_messages")).rows).toEqual([]);
+    });
+    await as(null, async () => { expect(await fails(db.query("select * from public.ai_conversations"))).toBe(true); });
+  });
+  it("devolução de cota e log de uso só com o segredo do servidor", async () => {
+    await as(C, async () => { await db.query("select * from public.ai_try_consume()"); await db.query("select * from public.ai_try_consume()"); });
+    await as(C, async () => {
+      expect(await fails(db.query("select public.ai_release($1)", ["t".repeat(40)]))).toBe(true);
+      await db.query("select public.ai_release($1)", [S]);
+      expect((await db.query<{ used: number }>("select used from public.ai_quota()")).rows[0].used).toBe(1);
+      expect(await fails(db.query("select public.ai_log_request($1, 'openai', 'm', 1, 2, '{snapshot}', 'ok', null, 10)", ["t".repeat(40)]))).toBe(true);
+      await db.query("select public.ai_log_request($1, 'openai', 'gpt', 10, 20, '{get_asset_indicators}', 'ok', null, 900)", [S]);
+      expect(await fails(db.query("select * from public.ai_requests"))).toBe(true);
+    });
+    expect((await db.query("select user_id, provider, tools, status from public.ai_requests")).rows).toEqual([{ user_id: C, provider: "openai", tools: ["get_asset_indicators"], status: "ok" }]);
   });
 });

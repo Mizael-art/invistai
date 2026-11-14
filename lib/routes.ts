@@ -1,5 +1,5 @@
 /** Rotas que exigem sessão (validadas no servidor pelo middleware). */
-export const PRIVATE_PREFIXES = ["/perfil", "/notificacoes", "/favoritos", "/assinatura"];
+export const PRIVATE_PREFIXES = ["/perfil", "/notificacoes", "/favoritos", "/assinatura", "/ia"];
 export const isPrivatePath = (path: string) => PRIVATE_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
 
 /** Destino pós-login seguro: apenas caminhos internos (evita open redirect) e nunca as páginas de autenticação. */

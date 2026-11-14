@@ -50,6 +50,64 @@ http.createServer(async (req, res) => {
     if (cat === "stocks") list.splice(2, 0, { ...mk(50), title: "Cripto 2" });   // título repetido de outra categoria
     return send(200, { status: "ok", articles: list.slice((page - 1) * size, page * size) });
   }
+  // ----- Binance data-api (somente testes): velas sintéticas determinísticas por símbolo -----
+  if (u.pathname.startsWith("/binance/")) {
+    const KNOWN = { BTCUSDT: [60000, 1], ETHUSDT: [3000, -1], SOLUSDT: [150, 1], XRPUSDT: [0.6, 0], DOGEUSDT: [0.12, -1], USDCUSDT: [1, 0], ETHBTC: [0.05, 0] };
+    const TF = { "15m": 9e5, "1h": 36e5, "4h": 144e5, "1d": 864e5 };
+    const gen = (sym, tf, n) => { const [base, drift] = KNOWN[sym]; const ms = TF[tf]; const last = Math.floor(Date.now() / ms) * ms; let p = base * (drift > 0 ? 0.7 : drift < 0 ? 1.4 : 1); const out = [];
+      const step = (base * (drift > 0 ? 0.3 : drift < 0 ? -0.4 : 0)) / n;
+      for (let i = 0; i < n; i++) { const w = Math.sin(i / 3.2) * base * 0.012 + Math.sin(i / 11) * base * 0.02; const o = p; p = Math.max(base * 0.05, p + step); const c = p + w; const hi = Math.max(o, c) * 1.004, lo = Math.min(o, c) * 0.996;
+        out.push([last - (n - 1 - i) * ms, String(o), String(hi), String(lo), String(c), String(1000 + (i % 7) * 120), last - (n - 1 - i) * ms + ms - 1, "0", 10, "0", "0", "0"]); p = c; }
+      return out; };
+    if (u.pathname === "/binance/klines") { const sym = u.searchParams.get("symbol"), tf = u.searchParams.get("interval"); if (!KNOWN[sym] || !TF[tf]) return send(400, { code: -1121, msg: "Invalid symbol." }); globalThis.__klines = (globalThis.__klines || 0) + 1; return send(200, gen(sym, tf, Math.min(+u.searchParams.get("limit") || 300, 1000))); }
+    if (u.pathname === "/binance/ticker/24hr") {
+      const t = (sym) => { const k = gen(sym, "1h", 30); const last = +k[k.length - 1][4], prev = +k[k.length - 25][4]; return { symbol: sym, lastPrice: String(last), priceChangePercent: String(((last - prev) / prev) * 100), highPrice: String(last * 1.02), lowPrice: String(last * 0.98), quoteVolume: String(KNOWN[sym][0] * 1e6), closeTime: Date.now() }; };
+      const sym = u.searchParams.get("symbol"); if (sym) return KNOWN[sym] ? send(200, t(sym)) : send(400, { code: -1121, msg: "Invalid symbol." });
+      return send(200, Object.keys(KNOWN).map(t));
+    }
+    return send(404, {});
+  }
+  // ----- Modelos de linguagem (somente testes): OpenAI Chat Completions e Anthropic Messages com chamadas de ferramenta -----
+  if (u.pathname.startsWith("/llm/")) {
+    const st = (globalThis.__llm ||= { calls: [] });
+    if (u.pathname === "/llm/__state") return send(200, st);
+    if (u.pathname === "/llm/__reset") { globalThis.__llm = { calls: [] }; return send(200, {}); }
+    const body = await new Promise((r) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => { try { r(JSON.parse(d)); } catch { r({}); } }); });
+    const anth = u.pathname.endsWith("/v1/messages");
+    const key = anth ? req.headers["x-api-key"] : (req.headers.authorization || "").replace(/^Bearer /, "");
+    if (key !== "sk-test-llm") return send(401, { error: { message: "bad key" } });
+    const msgs = body.messages || []; const textOf = (m) => typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((c) => c.type === "text").map((c) => c.text).join(" ") : "";
+    let li = -1; for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].role === "user" && textOf(msgs[i])) { li = i; break; }
+    const q = li >= 0 ? textOf(msgs[li]) : ""; const after = msgs.slice(li + 1);
+    const results = anth ? after.filter((m) => m.role === "user").flatMap((m) => m.content.filter((c) => c.type === "tool_result").map((c) => c.content)) : after.filter((m) => m.role === "tool").map((m) => m.content);
+    st.calls.push({ provider: anth ? "anthropic" : "openai", model: body.model, system: anth ? body.system : msgs[0]?.content, nMessages: msgs.length, tools: (body.tools || []).map((t) => t.name || t.function?.name), q, results: results.length });
+    if (/falhe/i.test(q)) return send(500, { error: { message: "boom" } });
+    let call = null;
+    if (!results.length) {
+      const m = q.match(/\b(BTC|ETH|SOL|XRP|DOGE|XYZ)\b/i);
+      if (/melhores|scan/i.test(q)) call = { name: "scan_opportunities", args: { direction: "alta", limit: 3 } };
+      else if (/compare/i.test(q)) call = { name: "compare_assets", args: { symbols: ["BTC", "ETH"] } };
+      else if (/hist[óo]rico/i.test(q) && m) call = { name: "get_asset_history", args: { symbol: m[1], timeframe: "1d", periods: 60 } };
+      else if (/PETR4/i.test(q)) call = { name: "get_asset_indicators", args: { symbol: "PETR4", asset_class: "stock_br" } };
+      else if (m) call = { name: "get_asset_indicators", args: { symbol: m[1] } };
+      else if (/not[íi]cia/i.test(q)) call = { name: "search_market_news", args: { query: "bitcoin" } };
+      else if (/calend[áa]rio/i.test(q)) call = { name: "get_economic_calendar", args: {} };
+    }
+    let text;
+    if (call) {
+      if (anth) return send(200, { id: "msg_t", type: "message", role: "assistant", stop_reason: "tool_use", usage: { input_tokens: 100, output_tokens: 10 }, content: [{ type: "tool_use", id: "tu_1", name: call.name, input: call.args }] });
+      return send(200, { choices: [{ message: { role: "assistant", content: null, tool_calls: [{ id: "call_1", type: "function", function: { name: call.name, arguments: JSON.stringify(call.args) } }] } }], usage: { prompt_tokens: 100, completion_tokens: 10 } });
+    }
+    if (results.length) {
+      let d = {}; try { d = JSON.parse(results[0]); } catch {}
+      if (d.summary) text = `### Leitura rápida\n**${d.asset.display}** a ${d.quote?.price ?? "?"} (fonte: ${d.source}).\n\n### Viés\n${d.summary.verdict} · Score ${d.summary.score}/100\n\n- item de lista\n\nConteúdo educacional; não é recomendação de investimento.`;
+      else if (d.hits) text = `### Triagem\n${d.hits.map((h) => `- ${h.display}: score ${h.score}`).join("\n")}\n\nConteúdo educacional; não é recomendação de investimento.`;
+      else if (d.error) text = `Não tenho dados para isso: ${d.error}. <script>alert(1)</script>`;
+      else text = `Dados recebidos: ${Object.keys(d).join(", ")}.`;
+    } else text = /<b>/.test(q) ? "Texto com <b>html</b> e [link](https://evil.example) e **negrito**." : `Um FII é um fundo imobiliário. **Explicação educativa.**`;
+    if (anth) return send(200, { id: "msg_t", type: "message", role: "assistant", stop_reason: "end_turn", usage: { input_tokens: 120, output_tokens: 40 }, content: [{ type: "text", text }] });
+    return send(200, { choices: [{ message: { role: "assistant", content: text } }], usage: { prompt_tokens: 120, completion_tokens: 40 } });
+  }
   // ----- Stripe (somente testes): sessões de checkout/portal e assinaturas consultadas pelo webhook -----
   if (u.pathname.startsWith("/stripe/")) {
     const st = (globalThis.__stripe ||= { checkouts: [], portals: [], subs: {} });

@@ -52,20 +52,20 @@ try:
         bell = pg.locator("[data-testid=bell-count]").inner_text(); cnt = pg.locator("aside a.nav", has_text="Notificações").locator(".cnt").inner_text()
         check("contador de não lidas também no menu (igual ao sino)", bell == cnt == "1", f"{bell}/{cnt}")
         bad = []
-        for name, path in [("Favoritos", "/favoritos"), ("Notificações", "/notificacoes"), ("Perfil", "/perfil"), ("Mercado", "/mercado"), ("Suporte", "/suporte")]:
+        for name, path in [("TRADEON AI", "/ia"), ("Favoritos", "/favoritos"), ("Notificações", "/notificacoes"), ("Perfil", "/perfil"), ("Mercado", "/mercado"), ("Suporte", "/suporte")]:
             pg.locator("aside a.nav", has_text=name).click(); pg.wait_for_url("**" + path, timeout=15000); pg.wait_for_load_state("networkidle")
             if pg.locator("aside a.nav.on").inner_text().strip().split("\n")[0] != name: bad.append(name)
         check("menu: cada item abre a tela certa e fica marcado como ativo", not bad, ", ".join(bad))
         # ===== mobile: barra inferior + Mais =====
         mc = b.new_context(viewport={"width": 390, "height": 844}); mp = mc.new_page(); mp.on("pageerror", lambda e: errs.append(str(e)[:60] + " @ mobile | após: " + LAST[0])); login(mp, "ok4002@teste.com")
-        check("mobile: barra inferior com Início, Mercado, Notícias, Favoritos e Mais", mp.locator("#bn > *").all_inner_texts() == ["Início", "Mercado", "Notícias", "Favoritos", "Mais"])
+        check("mobile: barra inferior com Início, Mercado, TRADEON AI, Notícias e Mais", mp.locator("#bn > *").all_inner_texts() == ["Início", "Mercado", "TRADEON AI", "Notícias", "Mais"])
         mp.get_by_test_id("bn-more").click(); mp.wait_for_selector("#more-sheet")
-        check("'Mais' abre folha com Aprender, VIP, Notificações, Perfil, Assinatura e Suporte (foco no primeiro item)", mp.locator("#more-sheet a").all_inner_texts() == ["Aprender", "VIP", "Notificações", "Perfil", "Assinatura", "Suporte"] and mp.get_by_test_id("bn-more").get_attribute("aria-expanded") == "true" and mp.evaluate("document.activeElement.textContent") == "Aprender")
+        check("'Mais' abre folha com Favoritos, Aprender, VIP, Notificações, Perfil, Assinatura e Suporte (foco no primeiro item)", mp.locator("#more-sheet a").all_inner_texts() == ["Favoritos", "Aprender", "VIP", "Notificações", "Perfil", "Assinatura", "Suporte"] and mp.get_by_test_id("bn-more").get_attribute("aria-expanded") == "true" and mp.evaluate("document.activeElement.textContent") == "Favoritos")
         mp.keyboard.press("Escape"); check("Esc fecha a folha e devolve o foco ao botão", mp.locator("#more-sheet").count() == 0 and mp.evaluate("document.activeElement.dataset.testid") == "bn-more")
         mp.get_by_test_id("bn-more").click(); mp.mouse.click(195, 60); check("tocar fora fecha a folha", mp.locator("#more-sheet").count() == 0)
         mp.get_by_test_id("bn-more").click(); mp.locator("#more-sheet a", has_text="Perfil").click(); mp.wait_for_url("**/perfil"); mp.wait_for_selector("#pf-name", timeout=15000)
         check("item da folha navega, a folha fecha e 'Mais' fica ativo", mp.locator("#more-sheet").count() == 0 and mp.locator("#bn .on").inner_text().strip() == "Mais")
-        mp.locator("#bn a", has_text="Favoritos").click(); mp.wait_for_url("**/favoritos"); check("atalho Favoritos na barra inferior", mp.locator("#bn a.on").inner_text().strip() == "Favoritos")
+        mp.locator("#bn a", has_text="TRADEON AI").click(); mp.wait_for_url("**/ia"); mp.wait_for_selector(".ai-main"); check("atalho TRADEON AI na barra inferior", mp.locator("#bn a.on").inner_text().strip() == "TRADEON AI")
         mp.goto(B + "/"); mp.wait_for_selector(".lrow", timeout=20000)
         hb = mp.locator("header").bounding_box(); kids = mp.locator("header > *:visible").evaluate_all("e=>e.map(x=>{const r=x.getBoundingClientRect();return [r.left,r.right]})")
         check("mobile: cabeçalho cabe na tela sem sobreposição (avatar e botões inteiros)", all(k[1] <= 390.5 for k in kids) and all(kids[i][1] <= kids[i + 1][0] + 0.5 for i in range(len(kids) - 1)) and mp.locator("header .av").bounding_box()["width"] >= 34, str(kids))
