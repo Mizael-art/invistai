@@ -103,3 +103,24 @@ describe("provedores", () => {
     const s = normalizeFxSeries({ rates: { "2026-01-02": { BRL: 5.1 }, "2026-01-01": { BRL: 5 } } }, "BRL"); expect(s.map((c) => c.c)).toEqual([5, 5.1]); expect(s[0].v).toBeNull();
   });
 });
+
+describe("calibração conservadora", () => {
+  const mk = (tf: "1h" | "4h", rsi: number, bias: number, pos: number) => ({ tf, candles: 300, lastClosedAt: "", price: 100, closeOnly: false, ema: { e20: 1, e50: 1, e200: 1 }, rsi, macd: { hist: -1, rising: false }, adx: { adx: 40, plusDI: 5, minusDI: 30 },
+    atrPct: 1, bbWidthPct: 5, realizedVolPct: 1, volumeRatio: 1, changePct: { last: 0, n20: -5 },
+    structure: { trend: "down" as const, highs: ["LH"], lows: ["LL"], lastEvent: null, equalHighs: [], equalLows: [], sweep: null, supports: [], resistances: [110], zone: "discount" as const, positionPct: pos },
+    bias, evidence: [{ tf, side: "bear" as const, weight: 25, text: "Estrutura de baixa" }] });
+  it("tendência forte porém esticada (RSI extremo em 2 TFs, preço no fundo do range) → aguardar, confiança baixa, score limitado", () => {
+    const m = consolidate({ "1h": mk("1h", 19, -82, 4), "4h": mk("4h", 19, -82, 5) }, { expected: ["1h", "4h"] });
+    expect(m.verdict).toBe("aguardar"); expect(m.confidence).toBe("baixa"); expect(m.score).toBeLessThanOrEqual(55);
+    expect(m.evidence.risco.some((e) => /esticado/.test(e.text))).toBe(true); expect(m.regime).toMatch(/esticada/); expect(m.reference).toBeNull();
+  });
+  it("mesma tendência sem esticamento → viés de baixa com níveis de referência", () => {
+    const m = consolidate({ "1h": mk("1h", 38, -82, 30), "4h": mk("4h", 40, -82, 30) }, { expected: ["1h", "4h"] });
+    expect(m.verdict).toBe("baixa"); expect(m.reference).not.toBeNull();
+  });
+  it("um único tempo gráfico: score ≤ 65, confiança nunca alta e regime explica a falta de confirmação", () => {
+    const a = { ...mk("1h", 40, -82, 30), tf: "1d" as const, closeOnly: true };
+    const m = consolidate({ "1d": a }, { minTfs: 1, expected: ["1d"] });
+    expect(m.score).toBeLessThanOrEqual(65); expect(m.confidence).not.toBe("alta"); expect(m.regime).toMatch(/sem confirmação/);
+  });
+});

@@ -92,11 +92,25 @@ export function consolidate(tfs: Partial<Record<Timeframe, TfAnalysis>>, opts: {
   if (missing.length) risk.push({ tf: "mtf", side: "risk", weight: 4, text: `Sem dados para ${missing.join(", ")}` });
   const favor = all.filter((e) => (dir >= 0 ? e.side === "bull" : e.side === "bear")).sort((a, b) => b.weight - a.weight);
   const contra = all.filter((e) => (dir >= 0 ? e.side === "bear" : e.side === "bull")).sort((a, b) => b.weight - a.weight);
+  // Movimento esticado: momentum extremo NA direção da tendência e/ou preço no extremo do range. Não se persegue preço: vira "aguardar".
+  const extreme = avail.filter((k) => { const r = tfs[k]!.rsi; return r !== null && (dir > 0 ? r >= 72 : dir < 0 ? r <= 28 : false); }).length;
+  const pos = hi.structure.positionPct ?? 50; const zoneAgainst = dir > 0 ? pos >= 85 : dir < 0 ? pos <= 15 : false;
+  const stretched = extreme >= 2 || (extreme >= 1 && (zoneAgainst || avail.length === 1));
+  if (stretched) risk.push({ tf: "mtf", side: "risk", weight: 10, text: `Movimento esticado (${dir > 0 ? "sobrecompra" : "sobrevenda"} perto do ${dir > 0 ? "topo" : "fundo"} do range): risco de repique contra a tendência — melhor aguardar correção/confirmação` });
+  const closeOnly = avail.some((k) => tfs[k]!.closeOnly);
   const penalty = risk.reduce((a, e) => a + e.weight, 0);
-  const score = Math.max(0, Math.min(100, Math.round(Math.abs(bias) * 0.7 + (aligned / avail.length) * 30 - penalty * 0.6 + 15)));
-  const verdict: Verdict = avail.length < minTfs ? "insuficiente" : Math.abs(bias) >= 35 && aligned >= Math.ceil(avail.length / 2) && score >= 50 ? (dir > 0 ? "alta" : "baixa") : "aguardar";
-  const confidence = score >= 72 && aligned === avail.length ? "alta" : score >= 55 ? "média" : "baixa";
-  const regime = Math.abs(bias) < 20 ? "Lateral / sem direção clara" : `${bias > 0 ? "Alta" : "Baixa"}${aligned === avail.length ? " alinhada" : " com divergências"}`;
+  let score = Math.max(0, Math.min(100, Math.round(Math.abs(bias) * 0.7 + (aligned / avail.length) * 30 - penalty * 0.6 + 15)));
+  if (stretched) score = Math.min(score, 55);
+  if (avail.length < 2) score = Math.min(score, 65);                           // um único tempo gráfico nunca gera leitura forte
+  const directional = Math.abs(bias) >= 35 && aligned >= Math.ceil(avail.length / 2) && score >= 50 && !stretched;
+  const verdict: Verdict = avail.length < minTfs ? "insuficiente" : directional ? (dir > 0 ? "alta" : "baixa") : "aguardar";
+  let confidence: MultiTf["confidence"] = score >= 72 && aligned === avail.length ? "alta" : score >= 55 ? "média" : "baixa";
+  if ((avail.length < 2 || closeOnly) && confidence === "alta") confidence = "média";
+  if (stretched) confidence = "baixa";
+  const dirTxt = bias > 0 ? "Alta" : "Baixa";
+  const regime = Math.abs(bias) < 20 ? "Lateral / sem direção clara"
+    : avail.length === 1 ? `${dirTxt} no ${avail[0]}${stretched ? " (esticada)" : ""} — sem confirmação de outros tempos gráficos`
+    : `${dirTxt}${aligned === avail.length ? " alinhada" : " com divergências"}${stretched ? " e esticada" : ""}`;
   let reference: MultiTf["reference"] = null;
   if (verdict === "alta" || verdict === "baixa") {
     const atrAbs = ((lo.atrPct ?? hi.realizedVolPct ?? 1) / 100) * lo.price;
