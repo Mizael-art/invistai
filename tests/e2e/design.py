@@ -71,6 +71,10 @@ try:
         check("mobile: cabeçalho cabe na tela sem sobreposição (avatar e botões inteiros)", all(k[1] <= 390.5 for k in kids) and all(kids[i][1] <= kids[i + 1][0] + 0.5 for i in range(len(kids) - 1)) and mp.locator("header .av").bounding_box()["width"] >= 34, str(kids))
         a = b.new_context(viewport={"width": 390, "height": 844}).new_page(); a.goto(B + "/cadastro"); a.wait_for_selector("form")
         check("telas de acesso no mobile mostram o logotipo", a.locator(".auth-m-logo .lg").is_visible())
+        a.wait_for_load_state("networkidle"); a.get_by_test_id("auth-logo-m").click(); a.wait_for_url(B + "/", timeout=15000); a.wait_for_selector("main h1", timeout=20000)
+        check("logotipo das telas de acesso (celular) volta ao Início", a.url == B + "/")
+        d2 = b.new_context(viewport={"width": 1440, "height": 900}).new_page(); d2.goto(B + "/login"); d2.wait_for_selector("form"); d2.wait_for_load_state("networkidle")
+        d2.get_by_test_id("auth-logo").click(); d2.wait_for_url(B + "/", timeout=15000); check("logotipo do login (desktop) volta ao Início", d2.url == B + "/")
         # ===== tablet e notebook =====
         bad = []
         for w, h in [(820, 1180), (1024, 768), (1280, 800)]:

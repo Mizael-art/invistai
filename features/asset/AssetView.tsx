@@ -8,7 +8,7 @@ import { tradingViewSymbol } from "@/services/market/tradingview";
 import { getSessionUser } from "@/services/session";
 import { listFavoriteIds } from "@/services/favorites";
 import { categoryOf } from "@/services/market/categories";
-import { clock, compactMoney, compactNum, num, pct, priceText, relTime } from "@/lib/format";
+import { money, clock, compactMoney, compactNum, num, pct, priceText, relTime } from "@/lib/format";
 import { isStale } from "@/lib/freshness";
 import { Coin } from "@/components/ui/Coin";
 import { LineChart } from "@/components/ui/LineChart";
@@ -34,16 +34,22 @@ export async function AssetView({ id }: { id: string }) {
       <div>
         <div className="row"><Coin symbol={sym} /><h1 style={{ fontSize: 26 }}>{a.symbol}</h1><span className="mt">{a.name}</span></div>
         <div className="row" style={{ margin: "8px 0" }}><span className="bd">{categoryOf(a.category).label[lang]}</span><span className="bd v">{tr("as.currency")}: {a.quote ?? a.currency}</span></div>
-        <p className="num" style={{ fontSize: 32, margin: 0 }}>{priceText(a, lang)} <span className={up} style={{ fontSize: 18 }}>{pct(a.changePct24h, lang)}</span></p>
+        <p className="num" style={{ fontSize: 34, margin: 0, letterSpacing: "-.03em" }}><span className={up}>{priceText(a, lang)}</span> <span className={up} style={{ fontSize: 17 }}>{pct(a.changePct24h, lang)}</span></p>
         <p className="src">{tr("home.updated")}: {clock(a.updatedAt, lang)} ({relTime(a.updatedAt, lang)}) · {tr("home.source")}: {a.source}{isStale(a.updatedAt, Date.now(), a.staleAfterMs) && <span className="bd a stale">{tr("home.stale")}</span>}</p>
       </div>
+      {a.category !== "forex" && coin && (coin.high24h != null || coin.low24h != null || coin.volume24h != null) && (
+        <dl className="kv24" data-testid="stats24">
+          <div><dt>{tr("as.h24")}</dt><dd className="num">{coin.high24h != null ? money(coin.high24h, lang) : "—"}</dd></div>
+          <div><dt>{tr("as.l24")}</dt><dd className="num">{coin.low24h != null ? money(coin.low24h, lang) : "—"}</dd></div>
+          <div><dt>{tr("as.v24")}</dt><dd className="num">{coin.volume24h != null ? compactMoney(coin.volume24h, lang) : "—"}</dd></div>
+        </dl>)}
       <AssetActions id={a.id} initialFav={favs.has(a.id)} title={`${a.symbol} — TRADEON`} labels={{ share: d["as.share"], copied: d["as.copied"], shareFail: d["as.shareFail"] }} fav={fl} metadata={{ symbol: a.symbol, name: a.name, category: a.category }} />
     </div></div>
     <nav className="row" aria-label="Seções">{([["grafico", "as.sec.chart"], ["dados", "as.sec.data"], ["noticias", "as.sec.news"], ["analise", "as.sec.analysis"]] as const).map(([h, k]) => <a key={h} className="chip" href={`#${h}`}>{tr(k)}</a>)}</nav>
 
     <section id="grafico" className="card anchor" aria-label={tr("as.sec.chart")}>
       <h2>{tr("as.sec.chart")}</h2>
-      {tv ? <TradingViewChart symbol={tv} theme={theme} lang={lang} labels={{ loading: d["as.chart.loading"], failed: d["as.chart.failed"], retry: d["as.chart.retry"], period: d["as.period"], type: d["as.type"], candles: d["as.style.candles"], line: d["as.style.line"], attrib: d["as.chart.attrib"], p1D: d["as.p.1D"], p5D: d["as.p.5D"], p1M: d["as.p.1M"], p6M: d["as.p.6M"], p1A: d["as.p.1A"], pALL: d["as.p.ALL"] }} />
+      {tv ? <TradingViewChart symbol={tv} theme={theme} lang={lang} labels={{ loading: d["as.chart.loading"], failed: d["as.chart.failed"], retry: d["as.chart.retry"], period: d["as.period"], type: d["as.type"], candles: d["as.style.candles"], line: d["as.style.line"], attrib: d["as.chart.attrib"], more: d["as.tf.more"], indicators: d["as.tf.ind"], emaLegend: d["as.tf.legend"], "i.1W": d["as.i.1W"], "i.1M": d["as.i.1M"] }} />
         : (<><p className="note" role="status">{tr("as.chart.unsupported")}</p><LineChart values={a.sparkline} label={`${a.name} — 7d`} /></>)}
     </section>
 

@@ -10,7 +10,7 @@ def check_js(errs):
     if known: print(f"WARN  React #418 (hydration, problema conhecido — docs/ETAPA_08.md) x{len(known)}: {known[0][:220]}")
     check("sem erros de JS (o #418 conhecido é reportado como WARN)", not other, "; ".join(other)[:200])
 def start(port, env):
-    e = {**os.environ, "PORT": str(port), "NEXT_TELEMETRY_DISABLED": "1", **env}
+    e = {**os.environ, "PORT": str(port), "NEXT_TELEMETRY_DISABLED": "1", "NEWS_PROVIDER": "newsapi", **env}   # padrão determinístico; o RSS é testado em news_rss.py
     p = subprocess.Popen(["npx", "next", "start", "-p", str(port)], env=e, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, preexec_fn=os.setsid)
     for _ in range(60):
         try: urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=2); return p

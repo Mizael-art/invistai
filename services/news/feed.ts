@@ -2,6 +2,8 @@ import { cache } from "react";
 import { normalizeText } from "@/services/market/query";
 import { ProviderError, type ProviderErrorCode } from "../types";
 import { fetchNewsPage } from "./newsapi";
+import { fetchRssItems } from "./rss";
+import { newsProvider } from "./index";
 import { newsCategory, NEWS_CATEGORIES } from "./categories";
 import type { NewsCategory, NewsItem } from "./types";
 
@@ -25,6 +27,10 @@ export function filterNews(items: NewsItem[], q: string): NewsItem[] {
 }
 
 async function load(cats: NewsCategory[], lang: "pt" | "en", page: number): Promise<Feed> {
+  if (newsProvider() === "rss") {                                   // RSS: um único conjunto já mesclado; paginação local de 20
+    const { items, failed } = await fetchRssItems({ lang, cats });
+    return { items: items.slice((page - 1) * FEED_SINGLE, page * FEED_SINGLE), hasNext: items.length > page * FEED_SINGLE && page < 20, failed };
+  }
   const size = cats.length === 1 ? FEED_SINGLE : FEED_MULTI;
   const settled = await Promise.allSettled(cats.map((c) => fetchNewsPage({ q: newsCategory(c).query[lang], lang, page, pageSize: size })));
   const ok: { category: NewsCategory; items: NewsItem[]; raw: number }[] = [], failed: NewsCategory[] = [];

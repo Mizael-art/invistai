@@ -70,3 +70,9 @@ O INVISTAÍ passa a se chamar **TRADEON — Seu mercado financeiro em um só lug
 ## Correções durante a revisão
 - **Favoritos:** os contadores das abas (Todos/Ativos/Notícias) agora caem na hora ao remover um item. Antes dependiam só da atualização do servidor, que às vezes demorava. Quando o servidor responde, o valor dele passa a valer, sem descontar duas vezes.
 - **Testes:** Favoritos e Notificações esperam a página ficar interativa antes de clicar.
+
+## v2.1.0 (após o deploy)
+- **Notícias sem chave:** provedor RSS público (`services/news/rss.ts`) com fontes reais por categoria e idioma — PT: Livecoins e Money Times; EN: CoinDesk, Cointelegraph e investingLive. Só manchete, fonte, data e link para a matéria original. Remove duplicatas, itens com mais de 7 dias e links não-http; falha parcial por categoria. A NewsAPI continua disponível (`NEWS_PROVIDER=newsapi`/`NEWS_API_KEY`).
+- **Gráfico estilo corretora:** barra de tempos 15m · 1h · 4h · 1D visível e "Mais" (1m, 5m, 30m, 2h, 1S, 1Mês); Linha/Velas; EMA 7/14/28 e volume (desligáveis); barra do widget oculta; maior; horário de Brasília; escolhas lembradas no navegador. Cabeçalho do ativo com preço colorido pela variação e máx./mín./volume 24h.
+- **Telas de acesso:** o logotipo leva ao Início (desktop e celular).
+- **Horários** no fuso de Brasília (`APP_TIMEZONE`), também no servidor da Vercel.

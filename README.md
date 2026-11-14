@@ -26,7 +26,8 @@ Todas listadas em `.env.example` e lidas **no servidor, em runtime**. Nunca faç
 | `SUPABASE_URL`, `SUPABASE_ANON_KEY` | login, cadastro, perfil, favoritos, notificações | app só como visitante |
 | `COINGECKO_API_KEY` (opcional), `COINGECKO_BASE_URL` | cripto (spot) | limites menores da API pública |
 | `FOREX_BASE_URL` | câmbio (taxas diárias do BCE) | — (padrão público) |
-| `NEWS_API_KEY`, `NEWS_API_BASE_URL` | notícias | blocos de notícias "não configurado" |
+| `NEWS_PROVIDER`, `NEWS_API_KEY`, `NEWS_API_BASE_URL` | notícias: RSS público sem chave (padrão) ou NewsAPI | — (RSS funciona sem chave) |
+| `APP_TIMEZONE` | fuso dos horários exibidos | `America/Sao_Paulo` |
 | `SUPPORT_EMAIL` | página Suporte e pedido de exclusão de conta | canal de suporte indisponível |
 | `*_RATE_*`, `REFRESH_GLOBAL_PER_MIN` | ajustes de limites | valores padrão |
 

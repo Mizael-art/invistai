@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { stripHtml, normalizeCoinDetail } from "@/services/market/coingecko";
-import { tradingViewSymbol, buildTvConfig, PERIODS } from "@/services/market/tradingview";
+import { tradingViewSymbol, buildTvConfig, INTERVALS, isIntervalKey } from "@/services/market/tradingview";
 import { isValidAssetId } from "@/services/market/detail";
 import { computeInsights } from "@/features/asset/insights";
 import { compactMoney } from "@/lib/format";
@@ -33,12 +33,21 @@ describe("TradingView", () => {
     expect(tradingViewSymbol({ id: "usd-brl", category: "forex", quote: "BRL" })).toBe("FX_IDC:USDBRL");
     expect(tradingViewSymbol({ id: "petr4", category: "stocks_br" })).toBeNull();
   });
-  it("buildTvConfig reflete período, tipo, tema e idioma", () => {
-    expect(buildTvConfig({ symbol: "S", theme: "dark", lang: "pt", period: "5D", style: "line" })).toMatchObject({ symbol: "S", range: "5D", interval: "60", style: "2", theme: "dark", locale: "br", allow_symbol_change: false });
-    expect(buildTvConfig({ symbol: "S", theme: "light", lang: "en", period: "1A", style: "candles" })).toMatchObject({ range: "12M", interval: "W", style: "1", theme: "light", locale: "en", backgroundColor: "#ffffff" });
-    expect(buildTvConfig({ symbol: "S", theme: "dark", lang: "pt", period: "ALL", style: "candles" })).toMatchObject({ range: "ALL", interval: "M" });
+  it("buildTvConfig: tempo, tipo, tema, idioma, fuso de Brasília e barra do widget oculta", () => {
+    expect(buildTvConfig({ symbol: "S", theme: "dark", lang: "pt", interval: "4h", style: "line" })).toMatchObject({ symbol: "S", interval: "240", style: "2", theme: "dark", locale: "br", timezone: "America/Sao_Paulo", hide_top_toolbar: true, hide_volume: false });
+    expect(buildTvConfig({ symbol: "S", theme: "light", lang: "en", interval: "1W", style: "candles" })).toMatchObject({ interval: "W", style: "1", theme: "light", locale: "en" });
+    expect(buildTvConfig({ symbol: "S", theme: "dark", lang: "pt", interval: "15m", style: "candles" })).not.toHaveProperty("range");
   });
-  it("6 períodos com chaves únicas", () => expect(new Set(PERIODS.map((p) => p.key)).size).toBe(6));
+  it("indicadores: EMA 7/14/28 por padrão; desligáveis", () => {
+    expect(buildTvConfig({ symbol: "S", theme: "dark", lang: "pt", interval: "1h", style: "candles" }).studies.map((x) => x.inputs.length)).toEqual([7, 14, 28]);
+    expect(buildTvConfig({ symbol: "S", theme: "dark", lang: "pt", interval: "1h", style: "candles", indicators: false }).studies).toEqual([]);
+  });
+  it("tempos: 15m, 1h, 4h, 1D visíveis; demais em 'Mais'; chaves únicas e validação", () => {
+    expect(INTERVALS.filter((i) => i.main).map((i) => i.key)).toEqual(["15m", "1h", "4h", "1D"]);
+    expect(INTERVALS.filter((i) => !i.main).map((i) => i.key)).toEqual(["1m", "5m", "30m", "2h", "1W", "1M"]);
+    expect(new Set(INTERVALS.map((i) => i.key)).size).toBe(INTERVALS.length);
+    expect(isIntervalKey("4h")).toBe(true); expect(isIntervalKey("3h")).toBe(false); expect(isIntervalKey(null)).toBe(false);
+  });
 });
 describe("isValidAssetId", () => {
   it("aceita ids do CoinGecko e pares forex", () => { for (const id of ["bitcoin", "avalanche-2", "usd-brl", "coin-9"]) expect(isValidAssetId(id)).toBe(true); });

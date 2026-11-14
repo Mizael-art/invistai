@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Logo } from "@/components/ui/Logo";
 import { Icon } from "@/components/ui/Icon";
 import { getPrefs } from "@/lib/i18n/server";
@@ -6,7 +7,7 @@ import { getPrefs } from "@/lib/i18n/server";
 export async function AuthHero() {
   const { tr } = await getPrefs();
   return (<div className="l">
-    <Logo />
+    <Link href="/" aria-label="TRADEON — Início" data-testid="auth-logo" style={{ alignSelf: "flex-start", textDecoration: "none" }}><Logo /></Link>
     <div style={{ display: "grid", gap: 22 }}>
       <h1>{tr("au.hero")}</h1>
       <ul className="ck" style={{ margin: 0, gap: 12, fontSize: 15 }}>

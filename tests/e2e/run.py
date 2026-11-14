@@ -19,7 +19,7 @@ def stop(p): os.killpg(os.getpgid(p.pid), signal.SIGTERM)
 mock = subprocess.Popen(["node", "tests/mock-server.mjs"], stdout=subprocess.DEVNULL, preexec_fn=os.setsid); time.sleep(1)
 srv1 = start(3101, {"COINGECKO_BASE_URL": "http://127.0.0.1:4010/ok", "NEWS_API_BASE_URL": "http://127.0.0.1:4010/ok", "NEWS_API_KEY": "test"})
 srv2 = start(3102, {"COINGECKO_BASE_URL": "http://127.0.0.1:4010/rl", "NEWS_API_BASE_URL": "http://127.0.0.1:4010/down", "NEWS_API_KEY": "test"})
-srv3 = start(3103, {"COINGECKO_BASE_URL": "http://127.0.0.1:4010/ok"})  # sem NEWS_API_KEY
+srv3 = start(3103, {"COINGECKO_BASE_URL": "http://127.0.0.1:4010/ok", "NEWS_PROVIDER": "newsapi"})  # NewsAPI sem chave → "não configurado" (o RSS é testado em news_rss.py)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch()

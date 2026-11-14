@@ -1,6 +1,6 @@
 {
   "name": "tradeon",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "TRADEON — plataforma de mercado financeiro (Next.js + Supabase)",
   "scripts": {
     "dev": "next dev",
@@ -8,7 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:e2e": "python3 tests/e2e/run.py && PYTHONPATH=tests/e2e python3 tests/e2e/market.py && PYTHONPATH=tests/e2e python3 tests/e2e/asset.py && PYTHONPATH=tests/e2e python3 tests/e2e/news.py && PYTHONPATH=tests/e2e python3 tests/e2e/soon.py && PYTHONPATH=tests/e2e python3 tests/e2e/vip.py && PYTHONPATH=tests/e2e python3 tests/e2e/auth.py && PYTHONPATH=tests/e2e python3 tests/e2e/register.py && PYTHONPATH=tests/e2e python3 tests/e2e/recover.py && PYTHONPATH=tests/e2e python3 tests/e2e/profile.py && PYTHONPATH=tests/e2e python3 tests/e2e/favorites.py && PYTHONPATH=tests/e2e python3 tests/e2e/search.py && PYTHONPATH=tests/e2e python3 tests/e2e/notifications.py && PYTHONPATH=tests/e2e python3 tests/e2e/support.py && PYTHONPATH=tests/e2e python3 tests/e2e/integration.py && PYTHONPATH=tests/e2e python3 tests/e2e/design.py"
+    "test:e2e": "python3 tests/e2e/run.py && PYTHONPATH=tests/e2e python3 tests/e2e/market.py && PYTHONPATH=tests/e2e python3 tests/e2e/asset.py && PYTHONPATH=tests/e2e python3 tests/e2e/news.py && PYTHONPATH=tests/e2e python3 tests/e2e/soon.py && PYTHONPATH=tests/e2e python3 tests/e2e/vip.py && PYTHONPATH=tests/e2e python3 tests/e2e/auth.py && PYTHONPATH=tests/e2e python3 tests/e2e/register.py && PYTHONPATH=tests/e2e python3 tests/e2e/recover.py && PYTHONPATH=tests/e2e python3 tests/e2e/profile.py && PYTHONPATH=tests/e2e python3 tests/e2e/favorites.py && PYTHONPATH=tests/e2e python3 tests/e2e/search.py && PYTHONPATH=tests/e2e python3 tests/e2e/notifications.py && PYTHONPATH=tests/e2e python3 tests/e2e/support.py && PYTHONPATH=tests/e2e python3 tests/e2e/integration.py && PYTHONPATH=tests/e2e python3 tests/e2e/design.py && PYTHONPATH=tests/e2e python3 tests/e2e/news_rss.py"
   },
   "keywords": [],
   "author": "",

@@ -26,6 +26,14 @@ http.createServer(async (req, res) => {
     if (q === "slowcoin") await new Promise((r) => setTimeout(r, 900));
     return send(200, { coins: all.filter((c) => c.id.includes(q) || c.name.toLowerCase().includes(q) || c.symbol.toLowerCase() === q).map((c, i) => ({ id: c.id, name: c.name, symbol: c.symbol, market_cap_rank: all.indexOf(c) + 1 })) });
   }
+  // RSS (provedor de notícias sem chave): /rss/<url-original-codificada>. "moneytimes.com.br/economia" fica fora do ar (falha parcial).
+  if (u.pathname.startsWith("/rss/")) {
+    const src = decodeURIComponent(u.pathname.slice(5)); if (src.includes("/economia/")) { res.writeHead(503); return res.end("down"); }
+    const name = new URL(src).hostname.replace("www.", ""), t = (h) => new Date(Date.now() - h * 3600e3).toUTCString();
+    const items = [1, 2, 3].map((i) => `<item><title><![CDATA[${name.includes("livecoins") || name.includes("coin") ? "Bitcoin" : name.includes("investinglive") ? "USD/JPY Nasdaq CPI" : "Ibovespa e dólar"} — RSS ${name} ${i} &amp; mais]]></title><link>https://${name}/n/${i}?utm_source=rss</link><pubDate>${t(i + (src.length % 5))}</pubDate></item>`).join("")
+      + `<item><title>Velha</title><link>https://${name}/old</link><pubDate>${t(24 * 30)}</pubDate></item><item><title>XSS</title><link>javascript:alert(1)</link><pubDate>${t(1)}</pubDate></item>`;
+    res.writeHead(200, { "content-type": "application/rss+xml; charset=utf-8" }); return res.end(`<?xml version="1.0"?><rss version="2.0"><channel><title>${name}</title>${items}</channel></rss>`);
+  }
   if (u.pathname === "/__search_calls") return send(200, { n: globalThis.__searchCalls || 0 });
   if (u.pathname.startsWith("/ok/fx")) return send(200, fx);
   const ev = u.pathname.match(/^\/(ok|part)\/everything/);
