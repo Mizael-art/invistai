@@ -107,7 +107,7 @@ try:
         mb.screenshot(path="docs/screenshots/etapa03_mobile.png", full_page=True)
         # 429
         r2 = b.new_page(); r2.goto("http://127.0.0.1:3302/mercado/bitcoin"); r2.wait_for_selector(".note", timeout=15000)
-        check("429 do provedor: aviso + retry, navegação preservada", "Limite de requisições" in r2.inner_text("main") and r2.get_by_role("button", name="Tentar novamente").count() >= 1 and r2.locator("aside a.nav").count() == 9)
+        check("429 do provedor: aviso + retry, navegação preservada", "Limite de requisições" in r2.inner_text("main") and r2.get_by_role("button", name="Tentar novamente").count() >= 1 and r2.locator("aside a.nav").count() == 10)
         b.close()
 finally:
     for s in (s1, s2, m): stop(s)

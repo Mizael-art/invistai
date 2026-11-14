@@ -63,6 +63,13 @@ Detalhes de cada etapa: `docs/ETAPA_01.md` … `docs/ETAPA_15.md`. Diagnóstico 
 ## Segurança (resumo)
 Sessão em cookie HttpOnly (Supabase SSR); rotas privadas protegidas no middleware e de novo em cada página/API; validação com zod em todas as entradas; checagem de origem (CSRF) em todas as APIs que alteram estado; limites de requisições; erros sem detalhes internos; links externos só `http(s)`; cabeçalhos `nosniff`, `X-Frame-Options: DENY`, `frame-ancestors 'none'`, `Referrer-Policy`, `Permissions-Policy`; `npm audit` sem vulnerabilidades (PostCSS fixado em versão corrigida via `overrides`).
 
+## Assinaturas FREE / PRO / MAX (ecossistema — Etapa 1)
+- Planos: FREE R$ 0 (3 mensagens da TRADEON AI no total, por conta), PRO R$ 30/mês, MAX R$ 50/mês. Matriz de permissões em `lib/plans.ts`; o plano efetivo é calculado no servidor/banco (`public.current_plan`).
+- Pagamento real pela Stripe (Checkout + Portal do cliente). O plano só muda pelo webhook `/api/billing/webhook` com assinatura HMAC válida e evento idempotente; voltar do Checkout não libera nada.
+- Escrita de cobrança sem `service_role`: funções `billing_*` (SECURITY DEFINER) protegidas por `BILLING_DB_SECRET`, cujo SHA-256 fica em `billing_private.settings`:
+  `insert into billing_private.settings (key,value) values ('secret_sha256', encode(sha256('<BILLING_DB_SECRET>'::bytea),'hex')) on conflict (key) do update set value = excluded.value;`
+- Configuração na Stripe: criar os produtos PRO e MAX com preço mensal recorrente em BRL; criar o endpoint `https://<domínio>/api/billing/webhook` com os eventos `checkout.session.completed`, `customer.subscription.created|updated|deleted`, `invoice.paid`, `invoice.payment_failed`, `charge.refunded`; ativar o Portal do cliente (troca de plano e cancelamento).
+
 ## Pendências / dependências externas
 - **Validar com serviços reais:** projeto Supabase + SMTP (login, cadastro, e-mails de confirmação/recuperação), plano de produção da NewsAPI (o plano gratuito não permite uso em produção), símbolos no TradingView real, respostas reais da CoinGecko.
 - **Configurar:** e-mail oficial de suporte (`SUPPORT_EMAIL`).

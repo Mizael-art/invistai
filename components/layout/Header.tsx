@@ -44,6 +44,7 @@ export function Header({ lang, theme, user, unread: unreadProp = null, labels }:
             {menu && <div className="um-menu" role="menu" aria-label={labels["hdr.menu"]}>
               <Link role="menuitem" href="/perfil" onClick={() => setMenu(false)}><Icon name="user" size={18} />{labels["hdr.profile"]}</Link>
               <Link role="menuitem" href="/favoritos" onClick={() => setMenu(false)}><Icon name="star" size={18} />{labels["nav.favorites"]}</Link>
+              <Link role="menuitem" href="/assinatura" onClick={() => setMenu(false)}><Icon name="card" size={18} />{labels["nav.subscription"]}</Link>
               <Link role="menuitem" href="/suporte" onClick={() => setMenu(false)}><Icon name="help" size={18} />{labels["sp.link"]}</Link>
               <hr />
               <button type="button" role="menuitem" aria-label={labels["hdr.lang"]} onClick={toggleLang}><Icon name="globe" size={18} />{labels["hdr.langLabel"]}<span className="val">{lang === "pt" ? "Português" : "English"}</span></button>

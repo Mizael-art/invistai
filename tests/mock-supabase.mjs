@@ -26,6 +26,13 @@ const session = (email) => {
   const refresh = crypto.randomUUID(); refreshTokens.set(refresh, email); (issued.get(email) || issued.set(email, new Set()).get(email)).add(access);
   return { access_token: access, token_type: "bearer", expires_in: lifetime, expires_at: exp, refresh_token: refresh, user: userObj(email, u) };
 };
+// ----- Etapa 1: assinaturas/cota (espelha as regras das migrações 10/11; a lógica SQL real é testada no PGlite) -----
+const BILLING_SECRET = "test-billing-secret-0123456789abcdef-0123";
+const subs = new Map(), payments = [], subEvents = [], aiUsage = new Map(), webhookEvents = new Set();
+const PLAN_LIMIT = { free: 3, pro: null, max: null };
+const curPlan = (uid) => { const s = subs.get(uid); return s && ["pro", "max"].includes(s.plan_id) && ["active", "trialing", "past_due"].includes(s.status) && (!s.current_period_end || new Date(s.current_period_end) > new Date()) ? s.plan_id : "free"; };
+const subRow = (uid) => subs.get(uid) || { plan_id: "free", status: "none", provider: null, provider_customer_id: null, provider_subscription_id: null, started_at: null, current_period_start: null, current_period_end: null, cancel_at_period_end: false, canceled_at: null, updated_at: new Date().toISOString() };
+const resetBilling = () => { subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
 const readBody = (req) => new Promise((r) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => { try { r(JSON.parse(d || "{}")); } catch { r({}); } }); });
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), send = (c, b, h = {}) => { res.writeHead(c, { "content-type": "application/json", ...h }); res.end(b === undefined ? "" : JSON.stringify(b)); };
@@ -40,7 +47,9 @@ http.createServer(async (req, res) => {
   if (u.pathname === "/__lifetime") { lifetime = +(u.searchParams.get("s") || 3600); return send(200, { lifetime }); }
   if (u.pathname === "/__invalidate") { invalidateAll = true; refreshTokens.clear(); return send(200, { ok: true }); }
   if (u.pathname === "/__confirm") { const c = created.get(u.searchParams.get("email")); if (c) c.pending = false; return send(200, { ok: !!c }); }
-  if (u.pathname === "/__reset") { invalidateAll = false; revoked = new Set(); refreshTokens = new Map(); created.clear(); lifetime = 3600; pwOverride.clear(); issued.clear(); usedRecovery.clear(); stats.passwordCalls = {}; stats.signupCalls = {}; stats.signups = []; stats.resends = []; stats.recovers = []; stats.passwordUpdates = []; stats.logoutScopes = []; stats.profileWrites = []; stats.prefWrites = []; profiles.clear(); prefsStore.clear(); favs.length = 0; favSeq = 0; notifs.length = 0; notifSeq = 0; stats.favoriteWrites = []; stats.favoriteDeletes = []; stats.refreshCalls = stats.logouts = stats.userCalls = stats.verifies = 0; return send(200, { ok: true }); }
+  if (u.pathname === "/__billing") return send(200, { subs: Object.fromEntries(subs), payments, subEvents, aiUsage: Object.fromEntries(aiUsage), webhookEvents: [...webhookEvents] });
+  if (u.pathname === "/__set_plan") { const us = lookup((u.searchParams.get("email") || "").toLowerCase()); if (!us) return send(404, {}); const plan = u.searchParams.get("plan") || "free"; subs.set(us.id, { ...subRow(us.id), plan_id: plan, status: plan === "free" ? "none" : (u.searchParams.get("status") || "active"), current_period_end: u.searchParams.get("end") || new Date(Date.now() + 30 * 864e5).toISOString() }); return send(200, { ok: true }); }
+  if (u.pathname === "/__reset") { resetBilling(); invalidateAll = false; revoked = new Set(); refreshTokens = new Map(); created.clear(); lifetime = 3600; pwOverride.clear(); issued.clear(); usedRecovery.clear(); stats.passwordCalls = {}; stats.signupCalls = {}; stats.signups = []; stats.resends = []; stats.recovers = []; stats.passwordUpdates = []; stats.logoutScopes = []; stats.profileWrites = []; stats.prefWrites = []; profiles.clear(); prefsStore.clear(); favs.length = 0; favSeq = 0; notifs.length = 0; notifSeq = 0; stats.favoriteWrites = []; stats.favoriteDeletes = []; stats.refreshCalls = stats.logouts = stats.userCalls = stats.verifies = 0; return send(200, { ok: true }); }
   if (u.pathname === "/auth/v1/token" && req.method === "POST") {
     const gt = u.searchParams.get("grant_type"), body = await readBody(req);
     if (gt === "password") {
@@ -177,6 +186,40 @@ http.createServer(async (req, res) => {
   if (u.pathname === "/rest/v1/user_preferences") {
     if (req.method === "GET") { const row = prefsStore.get(eq("user_id")); return row ? send(200, wantsObject ? row : [row]) : wantsObject ? send(406, { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned", details: "The result contains 0 rows", hint: null }) : send(200, []); }
     if (req.method === "POST" || req.method === "PATCH") { const body = await readBody(req); for (const b of Array.isArray(body) ? body : [body]) { const id = b.user_id || eq("user_id"); prefsStore.set(id, { news_categories: [], notification_categories: [], ...(prefsStore.get(id) || {}), ...b }); stats.prefWrites.push(b); } return send(201); }
+  }
+  if (u.pathname === "/rest/v1/subscriptions" && req.method === "GET") { const sub = subOf(req), id = eq("user_id"); if (!sub || id !== sub) return wantsObject ? send(406, { code: "PGRST116" }) : send(200, []); const row = subRow(sub); return send(200, wantsObject ? row : [row]); }
+  if (["/rest/v1/subscriptions", "/rest/v1/subscription_payments", "/rest/v1/subscription_events", "/rest/v1/ai_usage"].includes(u.pathname) && req.method !== "GET") return send(403, { code: "42501", message: "permission denied" });
+  if (u.pathname === "/rest/v1/subscription_payments" && req.method === "GET") { const sub = subOf(req); return send(200, payments.filter((p) => p.user_id === sub).slice().reverse().map(({ user_id, ...r }) => r)); }
+  if (u.pathname === "/rest/v1/subscription_events" && req.method === "GET") { const sub = subOf(req); return send(200, subEvents.filter((p) => p.user_id === sub).slice().reverse().map(({ user_id, ...r }) => r)); }
+  if (u.pathname === "/rest/v1/rpc/ai_quota" || u.pathname === "/rest/v1/rpc/ai_try_consume") {
+    const sub = subOf(req); if (!sub) return send(401, { code: "28000", message: "not_authenticated" });
+    const p = curPlan(sub), lim = PLAN_LIMIT[p]; let used = aiUsage.get(sub) || 0;
+    if (u.pathname.endsWith("ai_quota")) return send(200, [{ plan: p, used, msg_limit: lim, remaining: lim === null ? null : Math.max(lim - used, 0) }]);
+    if (lim !== null && used >= lim) return send(200, [{ allowed: false, plan: p, used, msg_limit: lim, remaining: 0 }]);
+    aiUsage.set(sub, ++used); return send(200, [{ allowed: true, plan: p, used, msg_limit: lim, remaining: lim === null ? null : Math.max(lim - used, 0) }]);
+  }
+  if (u.pathname.startsWith("/rest/v1/rpc/billing_")) {
+    const b = await readBody(req), fn = u.pathname.slice("/rest/v1/rpc/".length);
+    if (b.secret !== BILLING_SECRET) return send(403, { code: "42501", message: "billing_forbidden" });
+    if (fn === "billing_claim_event") { if (webhookEvents.has(b.p_event_id)) return send(200, false); webhookEvents.add(b.p_event_id); return send(200, true); }
+    if (fn === "billing_release_event") { webhookEvents.delete(b.p_event_id); return send(200, null); }
+    if (fn === "billing_user_by_customer") { for (const [k, v] of subs) if (v.provider_customer_id === b.p_customer) return send(200, k); return send(200, null); }
+    if (fn === "billing_link_customer") { subs.set(b.p_user, { ...subRow(b.p_user), provider: b.p_provider, provider_customer_id: b.p_customer }); return send(200, null); }
+    if (fn === "billing_sync_subscription") {
+      const old = subs.get(b.p_user);
+      subs.set(b.p_user, { ...subRow(b.p_user), plan_id: b.p_plan, status: b.p_status, provider: b.p_provider, provider_customer_id: b.p_customer ?? old?.provider_customer_id ?? null, provider_subscription_id: b.p_subscription ?? old?.provider_subscription_id ?? null,
+        started_at: old?.started_at ?? b.p_started, current_period_start: b.p_period_start, current_period_end: b.p_period_end, cancel_at_period_end: !!b.p_cancel_at_period_end, canceled_at: b.p_canceled_at, updated_at: new Date().toISOString() });
+      if (!old || old.plan_id !== b.p_plan || old.status !== b.p_status) subEvents.push({ user_id: b.p_user, from_plan: old?.plan_id ?? null, to_plan: b.p_plan, from_status: old?.status ?? null, to_status: b.p_status, reason: String(b.p_reason || "sync").slice(0, 80), created_at: new Date().toISOString() });
+      return send(200, null);
+    }
+    if (fn === "billing_record_payment") {
+      const ex = payments.find((p) => p.provider_invoice_id === b.p_invoice), url = /^https:\/\//.test(b.p_url || "") ? b.p_url : null;
+      if (ex) Object.assign(ex, { status: ["refunded", "partially_refunded"].includes(ex.status) ? ex.status : b.p_status, amount_cents: b.p_amount, invoice_url: url ?? ex.invoice_url, paid_at: b.p_paid_at ?? ex.paid_at, plan_id: b.p_plan ?? ex.plan_id });
+      else payments.push({ id: crypto.randomUUID(), user_id: b.p_user, provider: b.p_provider, provider_invoice_id: b.p_invoice, plan_id: b.p_plan, amount_cents: b.p_amount, currency: String(b.p_currency).toLowerCase(), status: b.p_status, invoice_url: url, period_start: b.p_period_start, period_end: b.p_period_end, paid_at: b.p_paid_at, created_at: new Date().toISOString() });
+      return send(200, null);
+    }
+    if (fn === "billing_mark_refund") { const ex = payments.find((p) => p.provider_invoice_id === b.p_invoice); if (ex) ex.status = b.p_full ? "refunded" : "partially_refunded"; return send(200, null); }
+    return send(404, { code: "PGRST202" });
   }
   send(404, { error: "not found" });
 }).listen(4020, "127.0.0.1", () => console.log("mock supabase on 4020"));

@@ -23,6 +23,9 @@ const P: Record<string, string> = {
   info: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 8h.01",
   shield: "M12 3l7.5 3v5.5c0 4.6-3.2 8.3-7.5 9.5-4.3-1.2-7.5-4.9-7.5-9.5V6z",
   mail: "M4 6h16v12H4zM4 7l8 6 8-6",
+  card: "M3.5 6.5h17v11h-17zM3.5 10h17M7 14.5h4",
+  lock: "M6.5 11h11v9h-11zM8.5 11V8a3.5 3.5 0 0 1 7 0v3",
+  sparkle: "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 3v4M17 5h4",
   copy: "M9 9h10v11H9zM5 15H4V4h11v1",
 };
 export function Icon({ name, size = 20 }: { name: keyof typeof P | string; size?: number }) {

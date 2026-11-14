@@ -60,7 +60,7 @@ try:
         mc = b.new_context(viewport={"width": 390, "height": 844}); mp = mc.new_page(); mp.on("pageerror", lambda e: errs.append(str(e)[:60] + " @ mobile | após: " + LAST[0])); login(mp, "ok4002@teste.com")
         check("mobile: barra inferior com Início, Mercado, Notícias, Favoritos e Mais", mp.locator("#bn > *").all_inner_texts() == ["Início", "Mercado", "Notícias", "Favoritos", "Mais"])
         mp.get_by_test_id("bn-more").click(); mp.wait_for_selector("#more-sheet")
-        check("'Mais' abre folha com Aprender, VIP, Notificações, Perfil e Suporte (foco no primeiro item)", mp.locator("#more-sheet a").all_inner_texts() == ["Aprender", "VIP", "Notificações", "Perfil", "Suporte"] and mp.get_by_test_id("bn-more").get_attribute("aria-expanded") == "true" and mp.evaluate("document.activeElement.textContent") == "Aprender")
+        check("'Mais' abre folha com Aprender, VIP, Notificações, Perfil, Assinatura e Suporte (foco no primeiro item)", mp.locator("#more-sheet a").all_inner_texts() == ["Aprender", "VIP", "Notificações", "Perfil", "Assinatura", "Suporte"] and mp.get_by_test_id("bn-more").get_attribute("aria-expanded") == "true" and mp.evaluate("document.activeElement.textContent") == "Aprender")
         mp.keyboard.press("Escape"); check("Esc fecha a folha e devolve o foco ao botão", mp.locator("#more-sheet").count() == 0 and mp.evaluate("document.activeElement.dataset.testid") == "bn-more")
         mp.get_by_test_id("bn-more").click(); mp.mouse.click(195, 60); check("tocar fora fecha a folha", mp.locator("#more-sheet").count() == 0)
         mp.get_by_test_id("bn-more").click(); mp.locator("#more-sheet a", has_text="Perfil").click(); mp.wait_for_url("**/perfil"); mp.wait_for_selector("#pf-name", timeout=15000)

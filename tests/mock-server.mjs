@@ -50,6 +50,21 @@ http.createServer(async (req, res) => {
     if (cat === "stocks") list.splice(2, 0, { ...mk(50), title: "Cripto 2" });   // título repetido de outra categoria
     return send(200, { status: "ok", articles: list.slice((page - 1) * size, page * size) });
   }
+  // ----- Stripe (somente testes): sessões de checkout/portal e assinaturas consultadas pelo webhook -----
+  if (u.pathname.startsWith("/stripe/")) {
+    const st = (globalThis.__stripe ||= { checkouts: [], portals: [], subs: {} });
+    if (u.pathname === "/stripe/__state") return send(200, st);
+    if (u.pathname === "/stripe/__reset") { globalThis.__stripe = { checkouts: [], portals: [], subs: {} }; return send(200, {}); }
+    const body = await new Promise((r) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => r(d)); });
+    if (u.pathname === "/stripe/__sub" && req.method === "POST") { const o = JSON.parse(body); st.subs[o.id] = o; return send(200, {}); }
+    if (!(req.headers.authorization || "").startsWith("Bearer sk_test_")) return send(401, { error: { type: "invalid_request_error", code: "api_key_invalid" } });
+    const form = Object.fromEntries(new URLSearchParams(body));
+    if (u.pathname === "/stripe/v1/checkout/sessions" && req.method === "POST") { const id = "cs_test_" + (st.checkouts.length + 1); st.checkouts.push({ id, form, idem: req.headers["idempotency-key"] || null }); return send(200, { id, url: "https://checkout.stripe.test/c/pay/" + id }); }
+    if (u.pathname === "/stripe/v1/billing_portal/sessions" && req.method === "POST") { st.portals.push(form); return send(200, { id: "bps_test", url: "https://billing.stripe.test/p/session/bps_test" }); }
+    const m = u.pathname.match(/^\/stripe\/v1\/subscriptions\/([^/]+)$/);
+    if (m && req.method === "GET") return st.subs[m[1]] ? send(200, st.subs[m[1]]) : send(404, { error: { type: "invalid_request_error", code: "resource_missing" } });
+    return send(404, { error: { type: "invalid_request_error" } });
+  }
   if (u.pathname.startsWith("/rl/")) return send(429, { error: "rate" });
   if (u.pathname.startsWith("/down/")) return send(500, { error: "boom" });
   send(404, {});
