@@ -66,7 +66,7 @@ try:
         c3 = b.new_context(viewport={"width": 1440, "height": 900}); c3.add_cookies([{"name": "iv_theme", "value": "light", "url": B}]); p3 = c3.new_page(); login(p3, fresh())
         check("usuário sem preferência salva: o login NÃO sobrescreve a escolha local", p3.evaluate("document.documentElement.dataset.theme") == "light")
         # alternar pelo cabeçalho também salva na conta
-        n0 = len(stats()["profileWrites"]); p2.get_by_role("button", name="Toggle theme").click(); p2.wait_for_function("document.documentElement.dataset.theme==='dark'", timeout=10000)
+        n0 = len(stats()["profileWrites"]); p2.get_by_test_id("user-menu").click(); p2.get_by_role("menuitem", name="Toggle theme").click(); p2.wait_for_function("document.documentElement.dataset.theme==='dark'", timeout=10000)
         for _ in range(50):
             if len(stats()["profileWrites"]) > n0: break
             time.sleep(0.1)
@@ -100,7 +100,7 @@ try:
         pg.get_by_role("button", name="Encerrar outras sessões").click(); check("sessões: pede confirmação antes de encerrar", pg.get_by_role("button", name="Confirmar: encerrar outras sessões").is_visible())
         pg.get_by_role("button", name="Cancelar").last.click(); check("sessões: cancelar não chama o provedor", "others" not in stats()["logoutScopes"])
         pg.get_by_role("button", name="Encerrar outras sessões").click(); pg.get_by_role("button", name="Confirmar: encerrar outras sessões").click(); pg.wait_for_selector("[data-testid=sessions-msg]:has-text('Outras sessões encerradas.')", timeout=8000)
-        check("sessões: chama o provedor com escopo 'others' (recurso real) e mantém a sessão atual", stats()["logoutScopes"].count("others") == 1 and pg.get_by_role("button", name="Sair").is_visible())
+        check("sessões: chama o provedor com escopo 'others' (recurso real) e mantém a sessão atual", stats()["logoutScopes"].count("others") == 1 and pg.get_by_test_id("user-menu").is_visible())
         pg.reload(); reload_wait(pg); check("sessão atual continua válida após encerrar as outras", "/login" not in pg.url)
         p2.goto(B + "/perfil"); p2.wait_for_url(re.compile("/login"), timeout=15000); check("a outra sessão foi realmente encerrada (acesso negado)", "expired=1" in p2.url)
         r = pg.request.post(B + "/api/auth/sessions/others"); check("API sessões: sem sessão → 401", r.status == 401)

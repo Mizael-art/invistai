@@ -8,16 +8,24 @@ const item = (t: string, l: string, d: string) => `<item><title><![CDATA[${t}]]>
 describe("parser RSS/Atom", () => {
   it("lê RSS 2.0 com CDATA, entidades e datas RFC 822", () => {
     const r = parseFeed(rss(item("Dólar &amp; Bolsa: &#8220;alta&#8221;", "https://a.com/1", "Sat, 14 Nov 2026 15:00:32 +0000")));
-    expect(r).toEqual([{ title: "Dólar & Bolsa: “alta”", url: "https://a.com/1", publishedAt: "2026-11-14T15:00:32.000Z" }]);
+    expect(r).toEqual([{ title: "Dólar & Bolsa: “alta”", url: "https://a.com/1", publishedAt: "2026-11-14T15:00:32.000Z", imageUrl: null }]);
   });
   it("lê Atom (link href) e datas ISO / 'AAAA-MM-DD hh:mm:ss'", () => {
     const atom = `<feed><entry><title>A</title><link rel="alternate" href="https://b.com/a"/><updated>2026-11-14T10:00:00Z</updated></entry></feed>`;
-    expect(parseFeed(atom)[0]).toEqual({ title: "A", url: "https://b.com/a", publishedAt: "2026-11-14T10:00:00.000Z" });
+    expect(parseFeed(atom)[0]).toMatchObject({ title: "A", url: "https://b.com/a", publishedAt: "2026-11-14T10:00:00.000Z" });
     expect(parseFeed(rss(item("B", "https://b.com/b", "2026-10-03 09:26:02")))[0].publishedAt).toBe("2026-10-03T09:26:02.000Z");
   });
   it("descarta itens sem título, sem data válida ou com link não-http (javascript:, data:)", () => {
     const r = parseFeed(rss(item("", "https://a.com/x", "Sat, 14 Nov 2026 15:00:00 +0000") + item("Sem data", "https://a.com/y", "ontem") + item("XSS", "javascript:alert(1)", "Sat, 14 Nov 2026 15:00:00 +0000") + item("Ok", "https://a.com/z", "Sat, 14 Nov 2026 15:00:00 +0000")));
     expect(r.map((x) => x.title)).toEqual(["Ok"]);
+  });
+  it("imagem do feed: media:content, enclosure, <img> no resumo; só https", async () => {
+    const { feedImage } = await import("@/services/news/rss");
+    expect(feedImage('<item><media:content url="https://i.com/a.jpg" medium="image"/></item>')).toBe("https://i.com/a.jpg");
+    expect(feedImage('<item><enclosure url="https://i.com/b.png" type="image/png" length="0"/></item>')).toBe("https://i.com/b.png");
+    expect(feedImage('<item><description>&lt;img src="https://i.com/c.webp"&gt;</description></item>')).toBe("https://i.com/c.webp");
+    expect(feedImage('<item><media:thumbnail url="http://i.com/d.jpg"/></item>')).toBeNull();
+    expect(feedImage('<item><enclosure url="javascript:alert(1)" type="image/png"/></item>')).toBeNull();
   });
   it("remove tags HTML do título e decodifica entidades", () => { expect(decodeEntities("a &lt;b&gt; &#x41; &quot;")).toBe('a <b> A "'); });
 });

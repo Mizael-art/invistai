@@ -1,11 +1,11 @@
 export const dict = {
   pt: {
     "nav.home": "Início", "nav.market": "Mercado", "nav.news": "Notícias", "nav.learn": "Aprender", "nav.vip": "VIP", "nav.favorites": "Favoritos", "nav.notifications": "Notificações", "nav.profile": "Perfil", "nav.more": "Mais", "nav.sec.explore": "Explorar", "nav.sec.grow": "Aprenda e evolua", "nav.sec.account": "Minha conta", "nav.tagline": "Seu mercado financeiro em um só lugar.",
-    "hdr.search": "Buscar ativo ou mercado (Ctrl+K)", "hdr.searchSoon": "Busca global disponível em etapa futura", "hdr.theme": "Alternar tema", "hdr.lang": "Alternar idioma", "hdr.bell": "Notificações", "hdr.profile": "Perfil", "hdr.login": "Entrar",
+    "hdr.search": "Buscar ativo ou mercado (Ctrl+K)", "hdr.searchSoon": "Busca global disponível em etapa futura", "hdr.theme": "Alternar tema", "hdr.lang": "Alternar idioma", "hdr.bell": "Notificações", "hdr.profile": "Perfil", "hdr.menu": "Menu da conta", "hdr.langLabel": "Idioma", "hdr.themeLabel": "Tema", "hdr.login": "Entrar",
     "home.hello": "Olá, {name}!", "home.helloGuest": "Olá! Bem-vindo ao TRADEON", "home.sub": "Acompanhe o mercado e as principais notícias.",
     "home.summary": "Resumo do mercado", "home.featured": "Ativos em destaque", "home.news": "Notícias recentes", "home.chart": "Variação em 7 dias",
     "home.seeMarket": "Ver mercado", "home.seeAll": "Ver todas", "home.refresh": "Atualizar dados", "home.refreshing": "Atualizando…", "home.refreshFail": "Falha ao atualizar. Tente novamente.", "home.refreshWait": "Aguarde alguns segundos para atualizar de novo.",
-    "ch.7dAgo": "há 7 dias", "ch.now": "agora", "ch.chg7d": "7 dias", "ch.chg24h": "24h", "home.markets": "Mercados", "home.go": "Acessar", "home.updated": "Atualizado", "home.source": "Fonte", "home.stale": "Desatualizado", "home.noData": "Dado indisponível",
+    "home.hero": "Mercado agora", "home.today": "Mercados hoje", "home.k.24h": "Variação 24h", "home.k.7d": "Variação 7 dias", "home.k.hi": "Máxima 7 dias", "home.k.lo": "Mínima 7 dias", "home.qa.fav": "Favoritos", "home.qa.notif": "Alertas", "home.qa.search": "Buscar ativo", "ch.7dAgo": "há 7 dias", "ch.now": "agora", "ch.chg7d": "7 dias", "ch.chg24h": "24h", "home.markets": "Mercados", "home.go": "Acessar", "home.updated": "Atualizado", "home.source": "Fonte", "home.stale": "Desatualizado", "home.noData": "Dado indisponível",
     "home.otherMarkets": "Ações, FIIs, ETFs e Forex: fonte de dados ainda não configurada.",
     "home.vipSoon": "VIP em breve", "home.vipText": "O módulo VIP está em desenvolvimento.", "home.learnMore": "Saiba mais",
     "home.shortcuts": "Atalhos", "sc.market": "Explore ativos e categorias", "sc.news": "Acompanhe o noticiário", "sc.learn": "Em breve", "sc.vip": "Em breve",
@@ -97,11 +97,11 @@ export const dict = {
   },
   en: {
     "nav.home": "Home", "nav.market": "Market", "nav.news": "News", "nav.learn": "Learn", "nav.vip": "VIP", "nav.favorites": "Favorites", "nav.notifications": "Notifications", "nav.profile": "Profile", "nav.more": "More", "nav.sec.explore": "Explore", "nav.sec.grow": "Learn and grow", "nav.sec.account": "My account", "nav.tagline": "Your financial market in one place.",
-    "hdr.search": "Search asset or market (Ctrl+K)", "hdr.searchSoon": "Global search available in a future step", "hdr.theme": "Toggle theme", "hdr.lang": "Toggle language", "hdr.bell": "Notifications", "hdr.profile": "Profile", "hdr.login": "Sign in",
+    "hdr.search": "Search asset or market (Ctrl+K)", "hdr.searchSoon": "Global search available in a future step", "hdr.theme": "Toggle theme", "hdr.lang": "Toggle language", "hdr.bell": "Notifications", "hdr.profile": "Profile", "hdr.menu": "Account menu", "hdr.langLabel": "Language", "hdr.themeLabel": "Theme", "hdr.login": "Sign in",
     "home.hello": "Hello, {name}!", "home.helloGuest": "Hello! Welcome to TRADEON", "home.sub": "Follow the market and top news.",
     "home.summary": "Market summary", "home.featured": "Featured assets", "home.news": "Latest news", "home.chart": "7-day change",
     "home.seeMarket": "View market", "home.seeAll": "View all", "home.refresh": "Refresh data", "home.refreshing": "Refreshing…", "home.refreshFail": "Refresh failed. Try again.", "home.refreshWait": "Please wait a few seconds before refreshing again.",
-    "ch.7dAgo": "7 days ago", "ch.now": "now", "ch.chg7d": "7 days", "ch.chg24h": "24h", "home.markets": "Markets", "home.go": "Open", "home.updated": "Updated", "home.source": "Source", "home.stale": "Outdated", "home.noData": "Data unavailable",
+    "home.hero": "Market now", "home.today": "Markets today", "home.k.24h": "24h change", "home.k.7d": "7-day change", "home.k.hi": "7-day high", "home.k.lo": "7-day low", "home.qa.fav": "Favorites", "home.qa.notif": "Alerts", "home.qa.search": "Find asset", "ch.7dAgo": "7 days ago", "ch.now": "now", "ch.chg7d": "7 days", "ch.chg24h": "24h", "home.markets": "Markets", "home.go": "Open", "home.updated": "Updated", "home.source": "Source", "home.stale": "Outdated", "home.noData": "Data unavailable",
     "home.otherMarkets": "Stocks, REITs, ETFs and Forex: data source not configured yet.",
     "home.vipSoon": "VIP coming soon", "home.vipText": "The VIP module is under development.", "home.learnMore": "Learn more",
     "home.shortcuts": "Shortcuts", "sc.market": "Explore assets and categories", "sc.news": "Follow the news", "sc.learn": "Coming soon", "sc.vip": "Coming soon",

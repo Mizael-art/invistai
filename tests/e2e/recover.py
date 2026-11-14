@@ -18,7 +18,7 @@ def forgot(pg, email, base=B):
 def open_link(pg, n, base=B):
     pg.goto(f"{base}/auth/confirm?token_hash=recovery-hash-{n}&type=recovery"); pg.wait_for_url(base + "/redefinir-senha"); pg.wait_for_selector("#password", timeout=15000)
 def logout(pg):
-    pg.get_by_role("button", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
+    pg.get_by_test_id("user-menu").click(); pg.get_by_role("menuitem", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
 try:
     with sync_playwright() as p:
         b = p.chromium.launch(); ctx = b.new_context(viewport={"width": 1440, "height": 900}); pg = ctx.new_page(); errs = []; calls = []
@@ -67,7 +67,7 @@ try:
         check("sucesso: senha atualizada no provedor e TODAS as sessões encerradas (global)", st["passwordUpdates"] == ["ok501@teste.com"] and "global" in st["logoutScopes"], str(st["logoutScopes"]))
         check("sucesso: cookies de sessão e de recuperação removidos", not sess(ctx) and not rec_cookie(ctx))
         pg.goto(B + "/login"); pg.fill("#email", "ok501@teste.com"); pg.fill("#password", "Senha@123"); pg.get_by_role("button", name=re.compile("^Entrar")).click(); pg.wait_for_selector("[role=alert].err"); check("senha antiga deixa de funcionar", "E-mail ou senha incorretos." in pg.inner_text("form"))
-        pg.fill("#password", "Nova@Senha1"); pg.get_by_role("button", name=re.compile("^Entrar")).click(); pg.wait_for_url(B + "/", timeout=10000); pg.wait_for_selector(".lrow", timeout=15000); check("nova senha permite entrar", pg.get_by_role("button", name="Sair").is_visible())
+        pg.fill("#password", "Nova@Senha1"); pg.get_by_role("button", name=re.compile("^Entrar")).click(); pg.wait_for_url(B + "/", timeout=10000); pg.wait_for_selector(".lrow", timeout=15000); check("nova senha permite entrar", pg.get_by_test_id("user-menu").is_visible())
         # sessão normal (sem link de recuperação) não pode redefinir
         pg.goto(B + "/redefinir-senha"); pg.wait_for_selector("[data-testid=reset-invalid]"); check("logado normalmente, sem cookie de recuperação → página de link inválido", pg.get_by_role("link", name="Solicitar novo link").get_attribute("href") == "/recuperar-senha")
         status = pg.evaluate("fetch('/api/auth/reset-password',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:'Outra@Senha9'})}).then(r=>r.status)"); check("API com sessão normal (sem cookie de recuperação) → 401", status == 401)

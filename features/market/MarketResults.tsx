@@ -8,6 +8,7 @@ import { listFavoriteIds } from "@/services/favorites";
 import { clock, pct, priceText } from "@/lib/format";
 import { isStale } from "@/lib/freshness";
 import { Coin } from "@/components/ui/Coin";
+import { Chg } from "@/components/ui/Chg";
 import { Spark } from "@/components/ui/LineChart";
 import { FavoriteButton } from "@/features/home/FavoriteButton";
 import { RefreshButton } from "@/features/home/RefreshButton";
@@ -29,7 +30,7 @@ export async function MarketTicker({ p }: { p: MarketParams }) {
   return (<div className="tick" aria-label="Destaques">{r.data.items.slice(0, 5).map((a) => (
     <Link key={a.id} href={`/mercado/${a.id}`} className="card" style={{ textDecoration: "none", color: "inherit" }}>
       <div className="row"><Coin symbol={a.symbol.replace("USD/", "")} /><b>{a.symbol}</b></div>
-      <span className="num">{priceText(a, lang)}</span><br /><span className={`num ${a.changePct24h === null ? "" : a.changePct24h >= 0 ? "up" : "dn"}`}>{pct(a.changePct24h, lang)}</span>
+      <div className="num" style={{ margin: "10px 0 6px", fontSize: 16 }}>{priceText(a, lang)}</div><Chg v={a.changePct24h} lang={lang} />
     </Link>))}</div>);
 }
 
@@ -56,7 +57,7 @@ export async function MarketResults({ p }: { p: MarketParams }) {
           <tr key={a.id}><td className="mt hm">{offset + i + 1}</td>
             <td><Link href={`/mercado/${a.id}`} className="row" style={{ textDecoration: "none", color: "inherit", flexWrap: "nowrap", gap: 10 }}><Coin symbol={a.symbol.replace("USD/", "")} /><div><b>{a.symbol}</b><br /><span className="mt" style={{ fontSize: 12 }}>{a.name}</span></div></Link></td>
             <td className="num">{priceText(a, lang)}</td>
-            <td className={`num ${a.changePct24h === null ? "" : a.changePct24h >= 0 ? "up" : "dn"}`}>{pct(a.changePct24h, lang)}</td>
+            <td className={`num ${a.changePct24h === null ? "" : a.changePct24h >= 0 ? "up" : "dn"}`}><Chg v={a.changePct24h} lang={lang} /></td>
             <td className="hm" style={{ width: 110 }}><Spark values={a.sparkline} up={a.sparkline.length > 1 && a.sparkline[a.sparkline.length - 1] >= a.sparkline[0]} /></td>
             <td className="hm src">{clock(a.updatedAt, lang)}{isStale(a.updatedAt, Date.now(), a.staleAfterMs) && <span className="bd a stale">{tr("home.stale")}</span>}</td>
             <td><FavoriteButton itemType="asset" itemId={a.id} initial={favs.has(a.id)} labels={fl} metadata={{ symbol: a.symbol, name: a.name, category: a.category }} /></td></tr>))}</tbody>

@@ -1,9 +1,10 @@
-/** Marca TRADEON: símbolo (um "T" cuja barra sobe em degrau — leitura de mercado em alta) + logotipo tipográfico.
- *  `mark` = só o símbolo (favicon, espaços pequenos). As cores seguem o tema via CSS (o símbolo é sempre lime com traço Obsidian). */
-export function LogoMark({ size = 28 }: { size?: number }) {
-  return (<svg width={size} height={size} viewBox="0 0 28 28" aria-hidden="true">
-    <rect width="28" height="28" rx="8" fill="#9BFF62" />
-    <path d="M6.5 12.5H11l3-3h7.5M14 9.5v12" fill="none" stroke="#080D0B" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+/** Marca TRADEON: três barras ascendentes inclinadas (mercado em alta) + logotipo "TRADE" com "ON" na cor da marca.
+ *  `mark` = só o símbolo. O símbolo é sempre lime (contraste ok nos dois temas). */
+export function LogoMark({ size = 26 }: { size?: number }) {
+  return (<svg width={size * 1.1} height={size} viewBox="0 0 30 27" aria-hidden="true">
+    <path d="M3.2 26h5.6l2.6-9H5.8z" fill="#5FD83A" />
+    <path d="M11.2 26h5.6l4-14h-5.6z" fill="#7FEA4C" />
+    <path d="M19.2 26h5.6L30 7.5h-5.6z" fill="#9BFF62" />
   </svg>);
 }
 export function Logo({ mark = false }: { mark?: boolean }) {

@@ -33,7 +33,7 @@ export function FavoritesList({ items, labels }: { items: ViewItem[]; labels: L 
           <div className="row sp" style={{ alignItems: "flex-start" }}>
             <div className="row" style={{ alignItems: "flex-start", flex: 1, minWidth: 0 }}><Coin symbol={i.title.replace("USD/", "")} />
               <div style={{ minWidth: 0 }}><h2 style={{ margin: 0 }}>{i.title} <span className="mt" style={{ fontSize: 14, fontWeight: 400 }}>{i.name}</span></h2>
-                {i.live ? (<><p className="num" style={{ margin: "6px 0 2px" }}>{i.live.price} <span className={i.live.tone}>{i.live.change}</span></p><p className="src">{i.live.meta}{i.live.stale && <span className="bd a stale">{labels["home.stale"]}</span>}</p></>)
+                {i.live ? (<><p className="num" style={{ margin: "6px 0 2px" }}>{i.live.price} <span className={`chg ${i.live.tone || "flat"}`}>{i.live.change}</span></p><p className="src">{i.live.meta}{i.live.stale && <span className="bd a stale">{labels["home.stale"]}</span>}</p></>)
                   : <p className="note" role="status" style={{ marginTop: 6 }}>{labels["fv.quoteUnavailable"]}</p>}
                 <p className="src">{labels["fv.saved"].replace("{when}", i.saved)}</p></div></div>
             <div className="row" style={{ flexWrap: "nowrap" }}>

@@ -42,7 +42,7 @@ try:
         check("contraste AA (≥ 4,5:1) para texto principal, secundário, positivo e negativo nos dois temas", all(x >= 4.5 for x in r), str([round(x, 1) for x in r]))
         lc = b.new_context(viewport={"width": 1440, "height": 900}); lc.add_cookies([{"name": "iv_theme", "value": "light", "url": B}]); lp = lc.new_page(); lp.goto(B + "/"); lp.wait_for_selector(".lrow", timeout=20000)
         check("tema claro: fundo Cloud, cards brancos, mesma cor de marca e positivo em verde escuro legível", [var(lp, v).upper() for v in ["--bg", "--sf", "--g", "--g-tx"]] == ["#F4F6F4", "#FFFFFF", "#9BFF62", "#2B7F12"])
-        rad = pg.locator("main .card").first.evaluate("e=>getComputedStyle(e).borderRadius"); check("cards com raio de 20px e borda discreta", rad == "20px")
+        rad = pg.locator("main .card").first.evaluate("e=>getComputedStyle(e).borderRadius"); check("cards com raio de 18px e borda discreta", rad == "18px")
         # ===== gráfico =====
         ch = pg.locator("main svg.linechart").first
         check("gráfico do Início: área, grade, rótulos de máxima/mínima e período", ch.locator("polygon").count() == 1 and ch.locator("line").count() >= 3 and pg.locator(".chart-mm span").count() == 2 and "há 7 dias" in pg.locator(".chart-ax").last.inner_text())
@@ -87,6 +87,12 @@ try:
         # ===== consistência =====
         pg.goto(B + "/noticias"); pg.wait_for_selector("article", timeout=20000)
         check("notícias em grade de 2 colunas no desktop (mesmos itens e ações)", pg.locator(".news-grid").evaluate("e=>getComputedStyle(e).gridTemplateColumns.split(' ').length") == 2 and pg.locator("article").first.get_by_role("button", name="Favoritar").count() == 1)
+        pg.goto(B + "/mercado/bitcoin"); pg.wait_for_selector("#dados", timeout=20000); pg.wait_for_load_state("networkidle")
+        tabs = pg.locator("nav.utabs a")
+        check("detalhe do ativo: abas Gráfico/Dados/Notícias/Análise com a primeira ativa", tabs.all_inner_texts() == ["Gráfico", "Dados", "Notícias relacionadas", "Análise"] and pg.locator("nav.utabs a.on").inner_text() == "Gráfico")
+        tabs.nth(1).click(); pg.wait_for_function("document.querySelector('nav.utabs a.on')?.textContent==='Dados'", timeout=5000)
+        check("aba clicada leva à seção e fica ativa", pg.url.endswith("#dados"))
+        check("variação em pílula com seta (▲/▼) sem alterar o texto do número", pg.locator("main .chg").first.inner_text().startswith(("+", "-", "−")) and pg.locator("main .chg").first.evaluate("e=>getComputedStyle(e,'::before').content") in ('"▲"', '"▼"'))
         hs = []
         for path in ["/", "/mercado", "/noticias", "/favoritos", "/notificacoes", "/perfil", "/suporte"]:
             pg.goto(B + path); pg.wait_for_selector("main h1", timeout=20000); hs.append(pg.locator("main h1").first.evaluate("e=>getComputedStyle(e).fontSize+' '+getComputedStyle(e).fontWeight"))

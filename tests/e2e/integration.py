@@ -46,7 +46,7 @@ try:
         check("login antes de confirmar: bloqueado com explicação", "Confirme seu e-mail" in pg.inner_text("form"))
         mk("/__confirm?email=" + email); pg.get_by_role("button", name=re.compile("^Entrar")).click(); pg.wait_for_url(B + "/favoritos", timeout=15000); settle(pg)
         check("login após confirmar: volta ao destino pedido (/favoritos) e mostra estado vazio", pg.locator("[data-testid=fv-empty]").is_visible())
-        check("sessão: iniciais no cabeçalho e 1 notificação real (boas-vindas)", pg.locator("header a.av").count() == 1 and pg.get_by_role("button", name="Sair").is_visible() and pg.locator("[data-testid=bell-count]").inner_text() == "1", pg.locator("header a.av").inner_text() + "|" + (pg.locator("[data-testid=bell-count]").inner_text() if pg.locator("[data-testid=bell-count]").count() else "-"))
+        check("sessão: iniciais no cabeçalho e 1 notificação real (boas-vindas)", pg.locator("header a.av").count() == 1 and pg.get_by_test_id("user-menu").is_visible() and pg.locator("[data-testid=bell-count]").inner_text() == "1", pg.locator("header a.av").inner_text() + "|" + (pg.locator("[data-testid=bell-count]").inner_text() if pg.locator("[data-testid=bell-count]").count() else "-"))
         # ===== 3. mercado → detalhe → notícias → busca (favoritos pelo mesmo serviço) =====
         pg.goto(B + "/mercado"); pg.wait_for_selector("tbody tr", timeout=20000); pg.wait_for_load_state("networkidle")
         pg.locator("tbody tr", has_text="Bitcoin").get_by_role("button", name="Favoritar").click(); assert fwrites(1)
@@ -72,7 +72,7 @@ try:
         check("preferências do perfil valem no app todo (inglês + claro no Mercado)", pg.inner_text("h1") == "Market" and pg.evaluate("document.documentElement.dataset.theme") == "light")
         pg.get_by_test_id("nav-support").click(); pg.wait_for_url("**/suporte"); check("menu → Suporte (em inglês)", pg.inner_text("h1") == "Support")
         # ===== 5. logout → novo login em outro dispositivo =====
-        pg.get_by_role("button", name="Sign out").click(); pg.wait_for_selector("header a.btn", timeout=10000)
+        pg.get_by_test_id("user-menu").click(); pg.get_by_role("menuitem", name="Sign out").click(); pg.wait_for_selector("header a.btn", timeout=10000)
         pg.goto(B + "/favoritos"); pg.wait_for_url(re.compile("/login")); check("logout encerra a sessão: área privada volta a exigir login", "/login" in pg.url)
         c2 = b.new_context(viewport={"width": 1440, "height": 900}); p2 = newpage(c2)
         p2.goto(B + "/login"); p2.fill("#email", email); p2.fill("#password", "Abcdef1!"); p2.get_by_role("button", name=re.compile("^Entrar")).click(); p2.wait_for_url(B + "/", timeout=15000); p2.wait_for_selector(".lrow", timeout=20000)

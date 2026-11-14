@@ -14,7 +14,7 @@ def stats(): return json.loads(mk("/__stats"))
 def reset(): mk("/__reset")
 def sess_cookies(ctx): return [c for c in ctx.cookies() if re.match(r"^sb-.*-auth-token(\.\d+)?$", c["name"])]
 def logout(pg):
-    pg.get_by_role("button", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
+    pg.get_by_test_id("user-menu").click(); pg.get_by_role("menuitem", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
 _n = [0]
 def fresh():
     _n[0] += 1; return f"ok{_n[0]}@teste.com"
@@ -47,13 +47,13 @@ try:
         # --- sucesso ---
         reset(); login(pg, "  OK@Teste.com  "); pg.wait_for_url(B + "/", timeout=10000); pg.wait_for_selector(".lrow", timeout=15000)
         check("sucesso: e-mail normalizado, redireciona ao Início e cria sessão", "Olá, Maria!" in pg.inner_text("main") and len(sess_cookies(ctx)) >= 1)
-        check("sucesso: cabeçalho mostra iniciais e 'Sair' (sem 'Entrar')", pg.locator("header a.av").inner_text() == "MT" and pg.get_by_role("button", name="Sair").is_visible() and pg.locator("header a.btn", has_text="Entrar").count() == 0)
+        check("sucesso: cabeçalho mostra iniciais e 'Sair' (sem 'Entrar')", pg.locator("header a.av").inner_text() == "MT" and pg.get_by_test_id("user-menu").is_visible() and pg.locator("header a.btn", has_text="Entrar").count() == 0)
         check("cookie de sessão HttpOnly e SameSite=Lax", all(c["httpOnly"] and c["sameSite"] == "Lax" for c in sess_cookies(ctx)), str(sess_cookies(ctx)[:1]))
         # já autenticado
         pg.goto(B + "/login"); pg.wait_for_url(B + "/"); pg.wait_for_selector(".lrow", timeout=15000); pg.wait_for_load_state("networkidle"); check("autenticado em /login → redireciona ao Início", True)
         pg.goto(B + "/login?next=/noticias"); pg.wait_for_url("**/noticias"); pg.wait_for_selector("article", timeout=15000); pg.wait_for_load_state("networkidle"); check("autenticado em /login?next=… → vai ao destino", True)
         # persistência
-        pg.goto(B + "/mercado"); pg.wait_for_selector("tbody tr"); pg.get_by_role("link", name="Notícias").first.click(); pg.wait_for_url("**/noticias"); check("sessão persiste entre páginas", pg.get_by_role("button", name="Sair").is_visible())
+        pg.goto(B + "/mercado"); pg.wait_for_selector("tbody tr"); pg.get_by_role("link", name="Notícias").first.click(); pg.wait_for_url("**/noticias"); check("sessão persiste entre páginas", pg.get_by_test_id("user-menu").is_visible())
         # rotas privadas autenticado
         for path in ["/perfil", "/notificacoes", "/favoritos"]:
             r = pg.goto(B + path); check(f"rota privada {path} acessível com sessão", r.status == 200 and "/login" not in pg.url)

@@ -60,22 +60,22 @@ try:
         check("cliques repetidos não geram novo reenvio", len(stats()["resends"]) == before + 1)
         mk("/__confirm?email=" + e); pg.fill("#password", GOOD); pg.get_by_role("button", name=re.compile("^Entrar")).click(); pg.wait_for_url(B + "/", timeout=10000); pg.wait_for_selector(".lrow", timeout=15000)
         check("após confirmar, conta criada consegue entrar", pg.locator("header a.av").count() == 1 and pg.locator("[data-testid=email-banner]").count() == 0)
-        pg.get_by_role("button", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
+        pg.get_by_test_id("user-menu").click(); pg.get_by_role("menuitem", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
         # auto-confirm (acessa na hora) e acesso antes da confirmação
         pg.goto(B + "/cadastro"); pg.wait_for_selector("form"); fill(pg, name="Auto Teste", email="auto@teste.com"); submit(pg); pg.wait_for_url(B + "/", timeout=10000); pg.wait_for_selector(".lrow", timeout=15000)
         check("confirmação desativada: conta entra logada, sem banner", sess(ctx) and pg.locator("[data-testid=email-banner]").count() == 0 and pg.locator("header a.av").count() == 1)
-        pg.get_by_role("button", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
+        pg.get_by_test_id("user-menu").click(); pg.get_by_role("menuitem", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
         pg.goto(B + "/cadastro"); pg.wait_for_selector("form"); fill(pg, name="Soft Teste", email="soft@teste.com"); submit(pg); pg.wait_for_url(B + "/", timeout=10000); pg.wait_for_selector(".lrow", timeout=15000)
         bn = pg.locator("[data-testid=email-banner]")
         check("acesso antes da confirmação: estado identificado por banner 'e-mail não confirmado'", bn.is_visible() and "ainda não foi confirmado" in bn.inner_text() and pg.locator("main .lrow").count() > 0)
         bn.get_by_role("button", name="Reenviar e-mail de confirmação").click(); pg.wait_for_selector("[data-testid=email-banner] >> text=Solicitamos o reenvio do e-mail.", timeout=8000)
         check("banner: reenvio usa o e-mail da sessão", stats()["resends"][-1] == "soft@teste.com")
         pg.get_by_role("link", name="Mercado").first.click(); pg.wait_for_url("**/mercado"); check("banner persiste nas páginas enquanto não confirmar", pg.locator("[data-testid=email-banner]").is_visible())
-        pg.get_by_role("button", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
+        pg.get_by_test_id("user-menu").click(); pg.get_by_role("menuitem", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
         # autenticado em /cadastro
         pg.goto(B + "/login"); pg.fill("#email", "ok@teste.com"); pg.fill("#password", "Senha@123"); pg.get_by_role("button", name=re.compile("^Entrar")).click(); pg.wait_for_url(B + "/", timeout=10000)
         pg.goto(B + "/cadastro"); pg.wait_for_url(B + "/"); check("autenticado em /cadastro → redireciona ao Início", True)
-        pg.get_by_role("button", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
+        pg.get_by_test_id("user-menu").click(); pg.get_by_role("menuitem", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
         # erros do servidor
         for email, txt, name in [("exists@teste.com", "Este e-mail já está cadastrado.", "e-mail já cadastrado"), ("dupe@teste.com", "Este e-mail já está cadastrado.", "e-mail já cadastrado (resposta ofuscada)"), ("weakserver@teste.com", "não atende às regras de segurança", "senha fraca recusada pelo provedor"), ("smtpfail@teste.com", "Não foi possível enviar o e-mail de confirmação", "falha ao enviar e-mail"), ("rate@teste.com", "Muitas tentativas", "limite do provedor"), ("down@teste.com", "Não foi possível entrar agora", "provedor indisponível")]:
             pg.goto(B + "/cadastro"); pg.wait_for_selector("form"); fill(pg, email=email); submit(pg); pg.wait_for_selector("[role=alert].err", timeout=8000)
@@ -104,7 +104,7 @@ try:
         r = pg.request.get(B + "/auth/confirm?token_hash=valid-hash&type=email&next=/noticias", max_redirects=0); check("confirm: link válido redireciona ao destino com aviso", r.status in (302, 307) and "/noticias" in r.headers["location"] and "email_confirmed=1" in r.headers["location"], r.headers.get("location", ""))
         pg.goto(B + "/auth/confirm?token_hash=valid-hash&type=email"); pg.wait_for_url(re.compile(r"/\?email_confirmed=1")); pg.wait_for_selector("[data-testid=email-confirmed]", timeout=15000)
         check("confirm: sessão criada e aviso 'E-mail confirmado com sucesso'", sess(ctx) and "E-mail confirmado com sucesso." in pg.inner_text("[data-testid=email-confirmed]"))
-        pg.get_by_role("button", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
+        pg.get_by_test_id("user-menu").click(); pg.get_by_role("menuitem", name="Sair").click(); pg.wait_for_selector("header a.btn:has-text('Entrar')", timeout=10000)
         for q, nm in [("token_hash=bad-hash&type=email", "token expirado"), ("token_hash=valid-hash&type=magiclink", "tipo não permitido"), ("token_hash=valid-hash", "sem tipo"), ("type=email", "sem token"), ("token_hash=abc&type=email", "token curto")]:
             r = pg.request.get(B + "/auth/confirm?" + q, max_redirects=0); check(f"confirm: {nm} -> /login?confirm=failed", r.status in (302, 307) and r.headers["location"].endswith("/login?confirm=failed"), r.headers.get("location", ""))
         r = pg.request.get(B + "/auth/confirm?token_hash=valid-hash&type=email&next=//evil.com", max_redirects=0); check("confirm: open redirect bloqueado", "evil.com" not in r.headers["location"])

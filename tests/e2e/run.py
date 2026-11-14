@@ -29,7 +29,7 @@ try:
         pg.goto("http://127.0.0.1:3101/"); pg.wait_for_selector(".lrow", timeout=15000)
         txt = pg.inner_text("main")
         check("A: saudação genérica para visitante", "Bem-vindo ao TRADEON" in txt)
-        check("A: 4 indicadores de mercado reais", pg.locator(".g4 .card").count() == 4)
+        check("A: destaque BTC e 5 ativos reais em 'Mercados hoje'", pg.locator(".lrow[data-asset]").count() == 5)
         check("A: preço BTC formatado", "US$" in txt and "64.000" in txt)
         check("A: ativo sem preço descartado (não vira zero)", "Null" not in txt and "NUL" not in txt)
         check("A: fonte e horário exibidos", "Fonte: CoinGecko" in txt and "Atualizado:" in txt)
@@ -43,7 +43,7 @@ try:
         check("A: favorito reverte e informa 'contas não configuradas'", "não configuradas" in pg.inner_text(".lrow") and btn.inner_text() == "☆")
         # atualizar dados
         pg.get_by_role("button", name="Atualizar dados").click(); pg.wait_for_timeout(1200)
-        check("A: atualizar dados mantém a página funcional", pg.locator(".g4 .card").count() == 4)
+        check("A: atualizar dados mantém a página funcional", pg.locator(".lrow[data-asset]").count() == 5)
         # navegação
         pg.get_by_role("link", name="VIP").first.click(); pg.wait_for_url("**/vip"); pg.wait_for_function("!!document.querySelector('h1')?.innerText.includes('Em breve')", timeout=8000)
         check("A: VIP abre 'Em breve'", "Em breve" in pg.inner_text("h1") and pg.locator("aside a.nav.on").inner_text().strip() == "VIP")
@@ -75,7 +75,7 @@ try:
         pb.screenshot(path="tests/e2e/shot_providers_down.png")
         # --- Cenário C: sem chave de notícias ---
         pc = b.new_page(); pc.goto("http://127.0.0.1:3103/"); pc.wait_for_selector(".lrow", timeout=15000)
-        check("C: sem NEWS_API_KEY mostra 'não configurado' e mercado continua", "Provedor não configurado" in pc.inner_text("main") and pc.locator(".g4 .card").count() == 4)
+        check("C: sem NEWS_API_KEY mostra 'não configurado' e mercado continua", "Provedor não configurado" in pc.inner_text("main") and pc.locator(".lrow[data-asset]").count() == 5)
         # --- API ---
         r = pc.request.post("http://127.0.0.1:3103/api/favorites", data={"itemType": "x", "itemId": "a"}); check("API: favorito inválido -> 400", r.status == 400)
         r = pc.request.post("http://127.0.0.1:3103/api/favorites", data={"itemType": "asset", "itemId": "bitcoin"}); check("API: sem Supabase -> 503", r.status == 503)

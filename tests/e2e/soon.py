@@ -26,7 +26,7 @@ try:
         pg.get_by_role("link", name="Aprender").first.click(); pg.wait_for_url("**/aprender"); pg.get_by_role("button", name=re.compile("Voltar")).click(); pg.wait_for_url("**/mercado")
         check("Mercado → Aprender → Voltar retorna ao Mercado (histórico real)", True)
         # atalho do Início
-        pg.goto(B + "/"); pg.wait_for_selector(".qa"); pg.locator(".qa a[href='/aprender']").click(); pg.wait_for_url("**/aprender"); check("atalho 'Aprender' do Início abre a tela", pg.inner_text("h1") == "Em breve")
+        pg.goto(B + "/"); pg.wait_for_selector(".qa2"); pg.locator(".qa2 a[href='/aprender']").click(); pg.wait_for_url("**/aprender"); check("atalho 'Aprender' do Início abre a tela", pg.inner_text("h1") == "Em breve")
         pg.get_by_role("link", name="Voltar ao Início").click(); pg.wait_for_url(B + "/"); check("'Voltar ao Início' funciona", True)
         # tema claro e EN
         ctx.add_cookies([{"name": "iv_theme", "value": "light", "url": B}, {"name": "iv_lang", "value": "en", "url": B}]); pg.goto(B + "/aprender"); pg.wait_for_selector("h1")

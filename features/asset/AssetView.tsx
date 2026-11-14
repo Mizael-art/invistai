@@ -11,6 +11,8 @@ import { categoryOf } from "@/services/market/categories";
 import { money, clock, compactMoney, compactNum, num, pct, priceText, relTime } from "@/lib/format";
 import { isStale } from "@/lib/freshness";
 import { Coin } from "@/components/ui/Coin";
+import { Chg } from "@/components/ui/Chg";
+import { SectionTabs } from "./SectionTabs";
 import { LineChart } from "@/components/ui/LineChart";
 import { RefreshButton } from "@/features/home/RefreshButton";
 import { Skeleton } from "@/features/home/blocks";
@@ -34,7 +36,7 @@ export async function AssetView({ id }: { id: string }) {
       <div>
         <div className="row"><Coin symbol={sym} /><h1 style={{ fontSize: 26 }}>{a.symbol}</h1><span className="mt">{a.name}</span></div>
         <div className="row" style={{ margin: "8px 0" }}><span className="bd">{categoryOf(a.category).label[lang]}</span><span className="bd v">{tr("as.currency")}: {a.quote ?? a.currency}</span></div>
-        <p className="num" style={{ fontSize: 34, margin: 0, letterSpacing: "-.03em" }}><span className={up}>{priceText(a, lang)}</span> <span className={up} style={{ fontSize: 17 }}>{pct(a.changePct24h, lang)}</span></p>
+        <p className="num" style={{ fontSize: 34, margin: 0, letterSpacing: "-.03em" }}><span className={up}>{priceText(a, lang)}</span> <span style={{ fontSize: 15, verticalAlign: "middle" }}><Chg v={a.changePct24h} lang={lang} /></span></p>
         <p className="src">{tr("home.updated")}: {clock(a.updatedAt, lang)} ({relTime(a.updatedAt, lang)}) · {tr("home.source")}: {a.source}{isStale(a.updatedAt, Date.now(), a.staleAfterMs) && <span className="bd a stale">{tr("home.stale")}</span>}</p>
       </div>
       {a.category !== "forex" && coin && (coin.high24h != null || coin.low24h != null || coin.volume24h != null) && (
@@ -45,7 +47,7 @@ export async function AssetView({ id }: { id: string }) {
         </dl>)}
       <AssetActions id={a.id} initialFav={favs.has(a.id)} title={`${a.symbol} — TRADEON`} labels={{ share: d["as.share"], copied: d["as.copied"], shareFail: d["as.shareFail"] }} fav={fl} metadata={{ symbol: a.symbol, name: a.name, category: a.category }} />
     </div></div>
-    <nav className="row" aria-label="Seções">{([["grafico", "as.sec.chart"], ["dados", "as.sec.data"], ["noticias", "as.sec.news"], ["analise", "as.sec.analysis"]] as const).map(([h, k]) => <a key={h} className="chip" href={`#${h}`}>{tr(k)}</a>)}</nav>
+    <SectionTabs label="Seções" items={([["grafico", "as.sec.chart"], ["dados", "as.sec.data"], ["noticias", "as.sec.news"], ["analise", "as.sec.analysis"]] as const).map(([id, k]) => ({ id, label: tr(k) }))} />
 
     <section id="grafico" className="card anchor" aria-label={tr("as.sec.chart")}>
       <h2>{tr("as.sec.chart")}</h2>

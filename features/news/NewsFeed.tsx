@@ -41,11 +41,12 @@ export async function NewsFeed({ p }: { p: NewsParams }) {
     {r.data.failed.length > 0 && <div className="note" role="status"><p>{tr("nw.partial", { list: r.data.failed.map((c) => newsCategory(c).label[lang]).join(", ") })}</p>{retry}</div>}
     {r.data.items.length === 0 ? <div className="note" role="status">{tr("news.empty")}</div>
       : items.length === 0 ? <div className="note" role="status">{tr("nw.noResults")}</div>
-      : (<div className="news-grid">{items.map((n) => (
-        <article key={n.id} className="card news-card" data-ts={Date.parse(n.publishedAt)} data-cat={n.category}>
+      : (<div className="news-grid">{items.map((n, idx) => (
+        <article key={n.id} className={`card news-card${idx === 0 && n.imageUrl ? " lead" : ""}`} data-ts={Date.parse(n.publishedAt)} data-cat={n.category}>
+          {n.imageUrl && <div className="news-img"><img src={n.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />{n.category && <span className="bd">{newsCategory(n.category).label[lang]}</span>}</div>}
           <div className="row sp" style={{ alignItems: "flex-start" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {n.category && <span className="bd">{newsCategory(n.category).label[lang]}</span>}
+              {n.category && !n.imageUrl && <span className="bd">{newsCategory(n.category).label[lang]}</span>}
               <h2 style={{ margin: "10px 0 6px", fontSize: 16, lineHeight: 1.35 }}><a href={n.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>{n.title}</a></h2>
               <p className="src">{n.source} · <time dateTime={n.publishedAt} title={clock(n.publishedAt, lang)}>{relTime(n.publishedAt, lang)}</time></p>
             </div>

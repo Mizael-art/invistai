@@ -24,7 +24,7 @@ try:
         card = pg.locator(".vipc"); check("Início: cartão VIP informa 'em breve' (sem planos/preços)", "em breve" in card.inner_text().lower() and not re.search(r"R\$|Plano|Assinar", card.inner_text()))
         card.get_by_role("link").click(); pg.wait_for_url("**/vip"); check("Início → cartão VIP abre a tela 'Em breve'", pg.inner_text("h1") == "Em breve")
         pg.get_by_role("button", name=re.compile("Voltar")).click(); pg.wait_for_url(B + "/"); check("Início → VIP → Voltar retorna ao Início", True)
-        pg.locator(".qa a[href='/vip']").click(); pg.wait_for_url("**/vip"); check("atalho 'VIP' do Início abre a tela", pg.inner_text("h1") == "Em breve")
+        pg.locator(".qa2 a[href='/vip']").click(); pg.wait_for_url("**/vip"); check("atalho 'VIP' do Início abre a tela", pg.inner_text("h1") == "Em breve")
         # Notícias -> VIP -> Voltar
         pg.get_by_role("link", name="Notícias").first.click(); pg.wait_for_url("**/noticias"); pg.wait_for_selector("article", timeout=15000)
         pg.get_by_role("link", name="VIP").first.click(); pg.wait_for_url("**/vip"); pg.get_by_role("button", name=re.compile("Voltar")).click(); pg.wait_for_url("**/noticias")

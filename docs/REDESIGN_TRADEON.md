@@ -76,3 +76,12 @@ O INVISTAÍ passa a se chamar **TRADEON — Seu mercado financeiro em um só lug
 - **Gráfico estilo corretora:** barra de tempos 15m · 1h · 4h · 1D visível e "Mais" (1m, 5m, 30m, 2h, 1S, 1Mês); Linha/Velas; EMA 7/14/28 e volume (desligáveis); barra do widget oculta; maior; horário de Brasília; escolhas lembradas no navegador. Cabeçalho do ativo com preço colorido pela variação e máx./mín./volume 24h.
 - **Telas de acesso:** o logotipo leva ao Início (desktop e celular).
 - **Horários** no fuso de Brasília (`APP_TIMEZONE`), também no servidor da Vercel.
+
+## v2.2.0 — visual da referência (showcase TRADEON)
+- **Logotipo:** três barras ascendentes inclinadas + "TRADE**ON**"; favicon no mesmo desenho.
+- **Fundo e cards:** Obsidian com brilho verde sutil nos cantos; cards com leve gradiente e borda esverdeada; raio de 18px.
+- **Início:** card de destaque "Mercado agora" (BTC/USD real) com preço grande, pílula de variação, gráfico de área com brilho ao lado e linha de indicadores (variação 24h e 7 dias, máxima e mínima de 7 dias, tudo calculado da série real); fileira de ações rápidas (Mercado, Notícias, Favoritos, Alertas, Aprender, VIP); "Mercados hoje" e notícias recentes com miniatura quando a fonte fornece imagem; faixa VIP. Não há "patrimônio" nem carteira: o app não tem esses dados e nada foi inventado.
+- **Variação em pílula** (▲ verde / ▼ vermelha) no Início, Mercado, Ativo e Favoritos; seta via CSS, texto do número inalterado.
+- **Abas em pílula sólida** (lime) para filtros; **abas sublinhadas** fixas no detalhe do ativo, acompanhando a seção visível.
+- **Notícias:** imagem da matéria quando o RSS a fornece (só https); a primeira vira destaque grande.
+- **Cabeçalho logado:** avatar com menu da conta (Perfil, Favoritos, Suporte, Idioma, Tema, Sair).

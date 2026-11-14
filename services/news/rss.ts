@@ -31,8 +31,20 @@ const text = (s: string | undefined) => s ? decodeEntities(s.replace(/^\s*<!\[CD
 const tag = (block: string, name: string) => block.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`, "i"))?.[1];
 
 /** Interpreta RSS 2.0 e Atom sem dependências. Itens sem título, link http(s) ou data válida são descartados. */
-export function parseFeed(xml: string): { title: string; url: string; publishedAt: string }[] {
-  const out: { title: string; url: string; publishedAt: string }[] = [];
+/** Imagem da matéria, quando o próprio feed a fornece (media:content/thumbnail, enclosure de imagem ou 1ª <img> do resumo). Só https. */
+export function feedImage(b: string): string | null {
+  const cands = [
+    b.match(/<media:content[^>]*url="([^"]+)"[^>]*(?:medium="image"|type="image\/[^"]+")/i)?.[1], b.match(/<media:content[^>]*(?:medium="image"|type="image\/[^"]+")[^>]*url="([^"]+)"/i)?.[1],
+    b.match(/<media:thumbnail[^>]*url="([^"]+)"/i)?.[1], b.match(/<media:content[^>]*url="([^"]+\.(?:jpe?g|png|webp)(?:\?[^"]*)?)"/i)?.[1],
+    b.match(/<enclosure[^>]*url="([^"]+)"[^>]*type="image\/[^"]+"/i)?.[1], b.match(/<enclosure[^>]*type="image\/[^"]+"[^>]*url="([^"]+)"/i)?.[1],
+    decodeEntities(b).match(/<img[^>]+src="(https:\/\/[^"]+)"/i)?.[1],
+  ];
+  for (const c of cands) { if (!c) continue; const u = decodeEntities(c).trim(); if (u.startsWith("https://") && isHttpUrl(u) && u.length < 1000) return u; }
+  return null;
+}
+
+export function parseFeed(xml: string): { title: string; url: string; publishedAt: string; imageUrl?: string | null }[] {
+  const out: { title: string; url: string; publishedAt: string; imageUrl?: string | null }[] = [];
   const blocks = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) ?? xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) ?? [];
   for (const b of blocks.slice(0, 100)) {
     const title = text(tag(b, "title"));
@@ -41,7 +53,7 @@ export function parseFeed(xml: string): { title: string; url: string; publishedA
     const date = text(tag(b, "pubDate") ?? tag(b, "published") ?? tag(b, "updated") ?? tag(b, "dc:date"));
     const ts = Date.parse(date.includes(" ") && /^\d{4}-\d\d-\d\d \d/.test(date) ? date.replace(" ", "T") + "Z" : date);
     if (!title || !isHttpUrl(url) || Number.isNaN(ts)) continue;
-    out.push({ title: title.slice(0, 300), url, publishedAt: new Date(ts).toISOString() });
+    out.push({ title: title.slice(0, 300), url, publishedAt: new Date(ts).toISOString(), imageUrl: feedImage(b) });
   }
   return out;
 }
@@ -55,7 +67,7 @@ async function fetchSource(s: RssSource): Promise<NewsItem[]> {
   if (res.status === 429) throw new ProviderError("rate_limited");
   if (!res.ok) throw new ProviderError("unavailable", `status ${res.status}`);
   const items = parseFeed((await res.text()).slice(0, 2_000_000));
-  return items.filter((i) => !s.match || s.match.test(i.title)).map((i) => ({ id: createHash("sha1").update(canonicalUrl(i.url)).digest("hex").slice(0, 16), title: i.title, source: s.source, url: i.url, publishedAt: i.publishedAt, imageUrl: null, category: s.cat }));
+  return items.filter((i) => !s.match || s.match.test(i.title)).map((i) => ({ id: createHash("sha1").update(canonicalUrl(i.url)).digest("hex").slice(0, 16), title: i.title, source: s.source, url: i.url, publishedAt: i.publishedAt, imageUrl: i.imageUrl ?? null, category: s.cat }));
 }
 
 /** Itens de uma ou mais categorias, mesclados, sem duplicatas, mais recentes primeiro e com até 7 dias. Falha só se TODAS as fontes falharem. */
