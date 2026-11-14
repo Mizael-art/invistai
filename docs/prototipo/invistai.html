@@ -92,7 +92,54 @@ aside .nav span.bg{margin-left:auto;background:var(--g);color:var(--on);border-r
 @media(max-width:899px){.vh h1{font-size:26px}.sc4{grid-template-columns:1fr 1fr}}
 .app>div{min-width:0}.only-m{display:none}@media(max-width:899px){.only-m{display:block}}
 .rdr{max-width:680px;line-height:1.7}.rdr p{margin:0 0 12px}.gridc{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
-</style></head><body><div id="root"></div><div id="toast" hidden></div>
+
+/* ===== tokens semânticos (tema escuro/claro) ===== */
+:root{--am-bg:#3a2a0b;--rd-bg:#3a1119;--pu-bg:#2a1850;--lock:#1a1030;--vc1:#2a1260;--vc2:#140a30;--ubg:#14522c;--shadow:none}
+:root[data-theme=light]{--am-bg:#fff0d4;--rd-bg:#ffe1e5;--pu-bg:#ece2ff;--lock:#f3ecff;--vc1:#efe6ff;--vc2:#fbf8ff;--ubg:#dcf5e5;--rd:#d6283f;--am:#a35f00;--pu:#6d33d6;--shadow:0 1px 2px rgba(13,26,18,.06),0 4px 14px rgba(13,26,18,.05)}
+.bd{display:inline-block;line-height:1.4}.bd.v{background:var(--pu-bg);color:var(--pu)}.bd.r{background:var(--rd-bg);color:var(--rd)}.bd.a{background:var(--am-bg);color:var(--am)}
+.demo{background:var(--am-bg);color:var(--am)}
+.lock{background:var(--lock)!important;border-color:var(--pu)}
+.vipc{background:linear-gradient(135deg,var(--vc1),var(--vc2));border-color:var(--pu);color:var(--tx)}.vipc .btn{background:var(--pu);color:#fff}
+.ub{background:var(--ubg);color:var(--tx)}
+.card{box-shadow:var(--shadow)}
+:root[data-theme=light] .card{background:#fff}
+:root[data-theme=light] header{background:rgba(243,246,244,.92);backdrop-filter:blur(6px)}
+:root[data-theme=light] .btn:not(.s):not(.d){color:#fff}
+:root[data-theme=light] .tg:after{box-shadow:0 1px 2px #0003}
+:root[data-theme=light] .coin{box-shadow:0 0 0 1px #0001}
+:root[data-theme=light] .sk{background:linear-gradient(90deg,#e6eee9,#d3e0d8,#e6eee9);background-size:200%}
+:root[data-theme=light] .mo{background:#0d1a1266}
+:root[data-theme=light] .plan{background:#fff}.plan.hi{box-shadow:0 0 0 3px rgba(15,159,74,.12)}
+:root[data-theme=light] .vh{background:radial-gradient(480px 320px at 15% 100%,rgba(15,159,74,.14),transparent 70%),#fff}
+:root[data-theme=light] .split .l{background:radial-gradient(500px 400px at 30% 90%,rgba(70,245,138,.35),transparent 70%),#06130c}
+/* ===== ritmo de espaçamento ===== */
+h1{margin:0;font-size:28px;line-height:1.2}h2{margin:0 0 12px;font-size:17px;line-height:1.3}p{margin:0 0 10px}p:last-child{margin-bottom:0}
+main{display:flex;flex-direction:column;gap:16px;padding:24px 28px 40px}
+main>br,main>.card>br:only-child{display:none}
+main>h1+p{margin-top:-8px}main>.row.sp>div>h1+p{margin:4px 0 0}
+main>.btn,main>.bd,main>.chip,main>span,main>.seg,main>a,main>select,main>label{align-self:flex-start}
+main>.card{margin-bottom:0!important}
+main>.row{margin:0!important}
+.card{padding:18px}.card>h2:first-child,.card>.row:first-child>h2{margin-top:0}.card>*+h2{margin-top:20px}
+.card .lrow:last-child{border-bottom:0}.card>.row:last-child:not(:only-child){margin-top:12px}
+.grid{gap:16px}.row{gap:10px}
+.btn+.btn{margin-left:8px}.row>.btn+.btn,.row>.btn+.ic{margin-left:0}.card .btn{margin-top:2px}.card .row .btn{margin-top:0}
+.field{margin-bottom:14px}.field label{font-size:13px;color:var(--mt)}
+.lrow{padding:12px 0}.nt{padding:14px 16px}
+.hg{gap:16px}.qa{gap:16px}.g4{gap:12px}
+.card.lrow{padding:14px 18px}
+table td,table th{padding:12px 10px}
+.tick{padding-bottom:6px}
+ul.ck,.plan ul{margin:12px 0}
+.vh{padding:32px}.vh h1{margin:12px 0 10px}.vh .card{margin-top:8px}
+.hero{padding:28px}.hero h1{margin:14px 0}
+.auth{padding:28px}.auth h2{font-size:22px;margin-bottom:6px}.auth .demo{margin:10px 0 16px;border-radius:8px}
+.ob{padding:24px}
+details.card{padding:14px 18px}details summary{cursor:pointer;font-weight:600}details p{margin:10px 0 0}
+.stp{margin:4px 0 8px}
+.pill,.chip{white-space:nowrap}
+@media(max-width:899px){main{padding:16px 14px 96px;gap:14px}.card{padding:14px}.vh,.hero{padding:20px}.auth{padding:20px}h1{font-size:23px}main>h1+p{margin-top:-6px}.row{gap:8px}}
+.hg>.g4{align-self:stretch}.hg>.g4 .card{height:100%}.hg>.card:not(.span){align-self:stretch}@media(max-width:899px){.md .tw th:first-child,.md .tw td:first-child{display:none}.md .tw table{font-size:13px}.md .tw td,.md .tw th{padding:10px 6px}}.stp>span{flex:1}.stp i{margin:0 auto 4px}.hero .btn{margin:6px 0 14px}@media(max-width:1100px){.chat>.card:first-child .ico-in{display:none}.chat>.card:first-child{padding:12px}.chat>.card:first-child .cl{padding:8px}}</style></head><body><div id="root"></div><div id="toast" hidden></div>
 <script>
 const $=s=>document.querySelector(s);
 const L={pt:{home:'Início',market:'Mercado',news:'Notícias',learn:'Aprender',vip:'VIP',fav:'Favoritos',notif:'Notificações',prof:'Perfil',sup:'Suporte',out:'Sair',search:'Buscar ativo (ex.: BTC, PETR4)',hi:'Olá',all:'Todos',noRes:'Nenhum resultado encontrado.',ai:'Analisar com IA',demo:'DADOS DEMONSTRATIVOS — nenhuma informação real, nenhum backend conectado',signals:'Sinais',chat:'Chat IA'},
@@ -101,6 +148,7 @@ const t=k=>L[S.lang][k]||k;
 let S={theme:'dark',lang:'pt',auth:false,vip:'free',fav:new Set(['BTC']),read:new Set(),chats:[{id:1,title:'Análise BTC',m:[]}],cur:1,cat:'all',q:'',sort:'ch',dir:-1,period:'1M',candle:false,nf:'all',tab:'chart',step:1,pay:'pix'};
 try{Object.assign(S,JSON.parse(localStorage.getItem('iv')||'{}'))}catch(e){}
 const save=()=>{try{localStorage.setItem('iv',JSON.stringify({theme:S.theme,lang:S.lang}))}catch(e){}};
+/* ===== DADOS DEMONSTRATIVOS (substituir por chamadas de API no backend): A, NW, SG, LB, TR, EV, REC, NT ===== */
 const A=[['BTC','Bitcoin','cs',64210,2.4],['ETH','Ethereum','cs',3120,-1.1],['SOL','Solana','cf',148,4.8],['BTCUSDT','BTC Perpétuo','cf',64190,2.3],['PETR4','Petrobras PN','ab',38.4,0.9],['VALE3','Vale ON','ab',61.2,-0.6],['AAPL','Apple Inc.','ai',212,1.2],['MSFT','Microsoft','ai',415,0.4],['HGLG11','CSHG Logística','fii',160.5,0.2],['MXRF11','Maxi Renda','fii',10.4,-0.1],['IVVB11','iShares S&P 500','etf',305,0.7],['BOVA11','iShares Ibovespa','etf',128,0.3],['EURUSD','Euro/Dólar','fx',1.08,-0.2],['USDBRL','Dólar/Real','fx',5.4,0.5]].map(a=>({s:a[0],n:a[1],c:a[2],p:a[3],ch:a[4]}));
 const CATS={cs:'Cripto spot',cf:'Cripto futuros',ab:'Ações BR',ai:'Ações int.',fii:'FIIs',etf:'ETFs',fx:'Forex'};
 const NW=[['Cripto: exemplo de manchete A','cr','BTC'],['Bolsa: exemplo de manchete B','ac','PETR4'],['Economia global: exemplo C','ec','USDBRL'],['Forex: exemplo de manchete D','fx','EURUSD']].map((n,i)=>({id:i,t:n[0],c:n[1],a:n[2]}));
@@ -274,7 +322,7 @@ if(x==='resend'){a.disabled=true;a.textContent='Enviando (simulação)...';setTi
 if(x==='reg'&&!document.querySelector('.modal-done')){const v=[...document.querySelectorAll('[data-f]')].map(i=>i.value);if(!$('#rtm').checked&&v[0]&&/^[^@\s]+@/.test(v[1])&&v[3]===v[4]&&v[3].length>=8)$('#e').textContent='Aceite os termos para continuar'}});
 const CD={cs:'Criptomoedas Spot',cf:'Criptomoedas Futuros',ab:'Ações Brasil',ai:'Ações Internacionais',fii:'FIIs',etf:'ETFs',fx:'Forex'};
 const MK=(a)=>`<div class="row sp"><div class="row">${coin(a.s)}<div><b style="font-size:18px">${a.s}</b> <span class="mt">${a.n}</span><br><span class="mt" style="font-size:12px">${CD[a.c]}</span></div></div>${star(a.s)}</div><p class="num" style="font-size:30px;margin:8px 0">${fmt(a.p)} ${chg(a.ch)}</p><div class="row">${['1D','1S','1M','3M','1A','5A'].map(p=>`<span class="chip ${(S.mp||'1D')===p?'on':''}" data-act="mp" data-k="${p}" tabindex="0" role="button">${p}</span>`).join('')}<span style="flex:1"></span><button class="chip ${S.candle?'':'on'}" data-act="ln">Linha</button><button class="chip ${S.candle?'on':''}" data-act="cn">Velas</button></div>${chart(a.s,S.candle)}<div class="row">${['Médias Móveis','RSI','MACD','Bollinger'].map(k=>`<span class="chip ${S.ind&&S.ind[k]?'on':''}" data-act="ind" data-k="${k}" tabindex="0" role="button">${k}</span>`).join('')}</div><br><div class="row"><button class="btn" style="flex:1" data-act="ai" data-k="${a.s}">Analisar com IA</button><button class="btn s" style="flex:1" data-act="toast" data-k="Análises relacionadas (demonstrativo)">Ver análises</button></div>`;
-R.market=()=>{let l=A.filter(a=>(S.cat==='all'||a.c===S.cat)&&(a.s+a.n).toLowerCase().includes(S.q.toLowerCase()));const sb=S.sub||'all';if(sb==='up')l=l.filter(a=>a.ch>0);if(sb==='dn')l=l.filter(a=>a.ch<0);l=[...l].sort((a,b)=>sb==='vol'?b.p-a.p:(a[S.sort]>b[S.sort]?1:-1)*S.dir);const sel=A.find(a=>a.s===S.msel)||l.find(a=>a.s==='BTC')||l[0]||A[0];const pg=Math.max(1,Math.ceil(l.length/8)),pgi=Math.min(S.pg||1,pg);const pl=l.slice((pgi-1)*8,pgi*8);
+R.market=()=>{let l=A.filter(a=>(S.cat==='all'||a.c===S.cat)&&(a.s+a.n).toLowerCase().includes(S.q.toLowerCase()));const sb=S.sub||'all';if(sb==='up')l=l.filter(a=>a.ch>0);if(sb==='dn')l=l.filter(a=>a.ch<0);l=[...l].sort((a,b)=>sb==='vol'?b.p-a.p:S.sortOn?(a[S.sort]>b[S.sort]?1:-1)*S.dir:0);const sel=A.find(a=>a.s===S.msel)||l.find(a=>a.s==='BTC')||l[0]||A[0];const pg=Math.max(1,Math.ceil(l.length/8)),pgi=Math.min(S.pg||1,pg);const pl=l.slice((pgi-1)*8,pgi*8);
 return`<div class="row sp"><div><h1>${t('market')}</h1><p class="mt">Acompanhe os principais ativos — dados demonstrativos.</p></div><button class="btn s" data-go="favs">★ Meus favoritos</button></div><div class="row" style="overflow-x:auto;flex-wrap:nowrap">${['all',...Object.keys(CD)].map(k=>`<button class="pill ${S.cat===k?'on':''}" style="white-space:nowrap" data-act="cat" data-k="${k}">${k==='all'?t('all'):CD[k]}</button>`).join('')}</div><br><div class="tick">${A.slice(0,5).map(a=>`<div class="card" data-act="msel" data-k="${a.s}"><div class="row">${coin(a.s)}<b>${a.s}</b></div><span class="num">${fmt(a.p)}</span><br>${chg(a.ch)}${spark(a.s.length+a.p%7,a.ch>=0,120,24)}</div>`).join('')}</div><br>
 <div class="md"><div class="card"><h2>Lista de ativos</h2><div class="row" style="margin-bottom:10px"><div class="ico-in" style="flex:1">${ICO('search',18)}<input id="mq" placeholder="Buscar ativo..." value="${S.q}" aria-label="Buscar ativo"></div><select data-sel="sub" aria-label="Filtro"><option value="all">Todos</option><option value="up" ${sb==='up'?'selected':''}>Em alta</option><option value="dn" ${sb==='dn'?'selected':''}>Em baixa</option><option value="vol" ${sb==='vol'?'selected':''}>Volume</option></select></div>${pl.length?`<div class="tw"><table><tr><th>#</th><th>Ativo</th><th data-act="sort" data-k="p">Preço ↕</th><th data-act="sort" data-k="ch">Var. ↕</th><th class="hm">Gráfico</th><th></th></tr>${pl.map((a,i)=>`<tr class="k" data-act="msel" data-k="${a.s}" style="${a.s===sel.s?'background:var(--gd)':''}"><td class="mt">${(pgi-1)*8+i+1}</td><td><div class="row">${coin(a.s)}<div><b>${a.s}</b><br><span class="mt" style="font-size:12px">${a.n}</span></div></div></td><td class="num">${fmt(a.p)}</td><td>${chg(a.ch)}</td><td class="hm" style="width:90px">${spark(a.s.length+a.p%7,a.ch>=0,90,26)}</td><td>${star(a.s)}</td></tr>`).join('')}</table></div><div class="row" style="justify-content:center;margin-top:10px">${Array.from({length:pg},(_,i)=>`<button class="ic ${i+1===pgi?'':''}" style="${i+1===pgi?'background:var(--g);color:var(--on)':''}" data-act="pg" data-k="${i+1}">${i+1}</button>`).join('')}</div>`:`<p>${t('noRes')}</p>`}</div>
 <div class="card">${MK(sel)}<br><button class="btn s" data-go="asset/${sel.s}">Ver detalhes completos</button></div></div><br><div class="grid g2"><div class="card"><div class="row sp"><h2>Análises e insights</h2><a href="#chat">Ver todas</a></div><p><b>Tendência de exemplo em ${sel.s}</b><br><span class="mt">Texto demonstrativo sobre cenários possíveis.</span></p></div><div class="card"><div class="row sp"><h2>Notícias relacionadas</h2><a href="#news">Ver todas</a></div>${NW.slice(0,2).map(n=>`<p><a href="#news/${n.id}">${n.t}</a></p>`).join('')}</div></div>`};
@@ -300,7 +348,7 @@ R.chat=()=>{const c=S.chats.find(x=>x.id===S.cur)||S.chats[0];const q=(S.cq||'')
 document.addEventListener('input',e=>{if(e.target.id==='cq'){S.cq=e.target.value;const p=e.target.selectionStart;render();const n=$('#cq');n.focus();n.setSelectionRange(p,p)}});
 document.addEventListener('change',e=>{if(e.target.dataset.sel==='sub'){S.sub=e.target.value;render()}});
 document.addEventListener('click',e=>{const a=e.target.closest('[data-act]');if(!a)return;const k=a.dataset.k,x=a.dataset.act,H3={mp:()=>{S.mp=k;S.period=k;render()},ln:()=>{S.candle=false;render()},cn:()=>{S.candle=true;render()},ind:()=>{S.ind=S.ind||{};S.ind[k]=!S.ind[k];render()},msel:()=>{S.msel=k;render()},pg:()=>{S.pg=+k;render()},plan:()=>{S.plan=k;location.hash='checkout'},cmp:()=>modal('<h2>Comparar planos</h2><p>Mensal e Anual incluem os mesmos recursos. Preços a definir.</p><button class="btn" data-close>Fechar</button>'),vt:()=>{S.vt=+k;render()},sf:()=>{S.sf=k;render()},sigo:()=>{S.sig=+k;render()},sigb:()=>{S.sig=null;render()},nfc:()=>{S.nfc=k;render()},qk:()=>{if(location.hash!=='#chat')location.hash='chat';send(k)},clearall:()=>{const d=modal('<h2>Excluir histórico?</h2><div class="row"><button class="btn d" data-ok>Excluir</button><button class="btn s" data-close>Cancelar</button></div>');d.querySelector('[data-ok]').onclick=()=>{S.chats=[{id:Date.now(),title:'Nova conversa',m:[]}];S.cur=S.chats[0].id;d.remove();render()}},copy:()=>{navigator.clipboard&&navigator.clipboard.writeText('Resposta demonstrativa').catch(()=>{});toast('Resposta copiada')}};H3[x]&&H3[x]()});
-window.addEventListener('hashchange',()=>{S.sig=null;S.sent=false});S.candle=true;
+document.addEventListener('click',e=>{if(e.target.closest('[data-act=sort]'))S.sortOn=true},true);window.addEventListener('hashchange',()=>{S.sig=null;S.sent=false});S.candle=true;
 
 const PF=()=>S.pf||{n:'João Silva',e:'joao@exemplo.invalid',p:'+55 (41) 90000-0000'};
 const REC=[['Análise Semanal do Mercado','2:14:35'],['Cenário Global e Juros','1:48:10'],['Oportunidades em Altcoins','1:12:05']];
