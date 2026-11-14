@@ -27,3 +27,10 @@ describe("format", () => {
   it("pct preserva sinal e trata null", () => { expect(pct(1.5, "en")).toBe("+1.50%"); expect(pct(null, "pt")).toBe("—"); });
   it("money formata por idioma", () => { expect(money(1234.5, "en")).toBe("$1,234.50"); });
 });
+
+describe("fuso horário dos horários exibidos", () => {
+  it("usa America/Sao_Paulo por padrão (servidor em UTC não desloca o horário)", async () => {
+    const { clock } = await import("@/lib/format");
+    expect(clock("2026-11-14T17:20:00Z", "pt")).toBe("14/11, 14:20");
+  });
+});

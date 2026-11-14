@@ -1,5 +1,8 @@
 export type Lang = "pt" | "en";
 const loc = (l: Lang) => (l === "pt" ? "pt-BR" : "en-US");
+/** Fuso dos horários exibidos. O servidor (Vercel) roda em UTC; sem isto, "Atualizado 17:20" apareceria para um usuário às 14:20 em Brasília.
+ *  Configurável por APP_TIMEZONE (IANA). Mesmo valor no servidor e no navegador, evitando divergência na hidratação. */
+export const TIME_ZONE = (() => { const z = process.env.APP_TIMEZONE || "America/Sao_Paulo"; try { new Intl.DateTimeFormat("en", { timeZone: z }); return z; } catch { return "America/Sao_Paulo"; } })();
 export function money(n: number, l: Lang, cur = "USD") {
   const d = n < 1 ? 4 : 2;
   return new Intl.NumberFormat(loc(l), { style: "currency", currency: cur, minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
@@ -19,7 +22,7 @@ export function relTime(iso: string | null, l: Lang, now = Date.now()) {
 }
 export function clock(iso: string | null, l: Lang) {
   if (!iso) return "—";
-  return new Intl.DateTimeFormat(loc(l), { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" }).format(new Date(iso));
+  return new Intl.DateTimeFormat(loc(l), { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit", timeZone: TIME_ZONE }).format(new Date(iso));
 }
 export function num(n: number, l: Lang, d = 2) { return new Intl.NumberFormat(loc(l), { minimumFractionDigits: d, maximumFractionDigits: d }).format(n); }
 /** Preço com a moeda de referência sempre identificada. Forex: "1 USD = x QUOTE". */
