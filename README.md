@@ -88,6 +88,8 @@ Sessão em cookie HttpOnly (Supabase SSR); rotas privadas protegidas no middlewa
 ## Treinar a TRADEON AI (sem fine-tuning)
 - Painel **Admin → Treinar IA** (`/admin/ia`): instruções extras (somam-se às regras fixas de segurança), **base de conhecimento** (arquivos .txt/.md ou texto colado, divididos em trechos e buscados em português a cada pergunta; a IA cita o documento), **exemplos** de pergunta/resposta ideal (até 8 ativos) e prévia da busca.
 - **Testar conexão**: faz uma chamada mínima na IA principal e na reserva e lista os modelos que a chave pode usar (a chave nunca é exibida).
+- **Produção atual**: principal = Groq (`openai/gpt-oss-120b`, raciocínio baixo — análise completa com ferramentas em ~2,5 s); reserva = Gemini (`gemini-flash-latest`). O Gemini gratuito mostrou lentidão/503 nos testes de nov/2026.
+- **Diagnóstico** (sem login): `GET /api/health/ai?token=HEALTH_TOKEN[&full=1][&use=fallback][&model=...]`.
 - **IA reserva**: com `AI_FALLBACK_*` configurado, limite (429), queda (5xx) ou tempo esgotado na principal fazem a resposta vir da reserva automaticamente.
 - Banco (migração 14): `ai_settings`, `ai_knowledge`, `ai_knowledge_chunks` (tsvector português + GIN), `ai_examples`; sem acesso do cliente; leitura pela IA só com o segredo do servidor.
 
