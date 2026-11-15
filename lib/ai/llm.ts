@@ -2,18 +2,19 @@ import { TOOL_DEFS, runTool, type Block, type ToolCtx } from "./tools";
 
 /** Camada própria de orquestração: conversa com o modelo (OpenAI Chat Completions ou compatível, ou Anthropic Messages),
  *  executa as ferramentas pedidas no servidor e devolve o texto final + cartões. A chave fica só no servidor. */
-export interface LlmEnv { provider: "openai" | "anthropic"; apiKey: string; model: string; baseUrl: string }
+export interface LlmEnv { provider: "openai" | "anthropic"; apiKey: string; model: string; baseUrl: string; reasoning?: string }
 /** IA reserva (opcional), usada quando a principal atinge limite, cai ou falha: AI_FALLBACK_PROVIDER / _API_KEY / _MODEL / _BASE_URL. */
 export function llmFallbackEnv(e = process.env): LlmEnv | null {
   if (!e.AI_FALLBACK_API_KEY) return null;
-  return llmEnv({ AI_PROVIDER: e.AI_FALLBACK_PROVIDER, AI_API_KEY: e.AI_FALLBACK_API_KEY, AI_MODEL: e.AI_FALLBACK_MODEL, AI_BASE_URL: e.AI_FALLBACK_BASE_URL } as unknown as NodeJS.ProcessEnv);
+  return llmEnv({ AI_PROVIDER: e.AI_FALLBACK_PROVIDER, AI_API_KEY: e.AI_FALLBACK_API_KEY, AI_MODEL: e.AI_FALLBACK_MODEL, AI_BASE_URL: e.AI_FALLBACK_BASE_URL, AI_REASONING_EFFORT: e.AI_FALLBACK_REASONING_EFFORT } as unknown as NodeJS.ProcessEnv);
 }
 /** Erros em que vale tentar a IA reserva (limite, indisponibilidade, rede). Erros de conteúdo/configuração não. */
 export const retriable = (code: string) => code === "rate_limited" || code === "timeout" || code === "network" || /^http_5\d\d$/.test(code);
 export function llmEnv(e = process.env): LlmEnv | null {
   const provider = e.AI_PROVIDER === "anthropic" ? "anthropic" : "openai"; const apiKey = e.AI_API_KEY || (provider === "openai" ? e.OPENAI_API_KEY : e.ANTHROPIC_API_KEY);
   if (!apiKey) return null;
-  return { provider, apiKey, model: e.AI_MODEL || (provider === "openai" ? "gpt-4.1-mini" : "claude-haiku-4-5"),
+  const reasoning = ["none", "minimal", "low", "medium", "high"].includes(e.AI_REASONING_EFFORT ?? "") ? e.AI_REASONING_EFFORT : undefined;
+  return { provider, apiKey, reasoning, model: e.AI_MODEL || (provider === "openai" ? "gpt-4.1-mini" : "claude-haiku-4-5"),
     baseUrl: (e.AI_BASE_URL || (provider === "openai" ? "https://api.openai.com/v1" : "https://api.anthropic.com")).replace(/\/$/, "") };
 }
 export interface ChatTurn { role: "user" | "assistant"; content: string }
@@ -40,7 +41,7 @@ export async function runChat(env: LlmEnv, system: string, history: ChatTurn[], 
     const msgs: Record<string, unknown>[] = [{ role: "system", content: system }, ...history.map((h) => ({ role: h.role, content: h.content }))];
     const toolsDef = TOOL_DEFS.map((t) => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const j = await post(`${env.baseUrl}/chat/completions`, { authorization: `Bearer ${env.apiKey}` }, { model: env.model, messages: msgs, tools: toolsDef, tool_choice: round === MAX_ROUNDS - 1 ? "none" : "auto", temperature: 0.3, max_tokens: 1600 }, signal);
+      const j = await post(`${env.baseUrl}/chat/completions`, { authorization: `Bearer ${env.apiKey}` }, { model: env.model, messages: msgs, tools: toolsDef, tool_choice: round === MAX_ROUNDS - 1 ? "none" : "auto", temperature: 0.3, max_tokens: 1600, ...(env.reasoning ? { reasoning_effort: env.reasoning } : {}) }, signal);
       const u = j.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined; inTok += u?.prompt_tokens ?? 0; outTok += u?.completion_tokens ?? 0;
       const m = (j.choices as { message?: { content?: string | null; tool_calls?: { id: string; function: { name: string; arguments: string } }[] } }[] | undefined)?.[0]?.message;
       if (!m) throw new LlmError("invalid_response");
