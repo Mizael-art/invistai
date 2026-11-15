@@ -13,6 +13,7 @@ import { Spark } from "@/components/ui/LineChart";
 import { FavoriteButton } from "@/features/home/FavoriteButton";
 import { RefreshButton } from "@/features/home/RefreshButton";
 import type { MarketParams } from "@/schemas/market";
+import { RowLink } from "@/components/ui/RowLink";
 
 export const hrefFor = (p: Partial<MarketParams>) => {
   const u = new URLSearchParams();
@@ -54,13 +55,13 @@ export async function MarketResults({ p }: { p: MarketParams }) {
       <div className="card tw"><table>
         <thead><tr><th className="hm">#</th>{th("name", "mk.col.asset")}{th("price", "mk.col.price")}{th("change", "mk.col.change", "hs")}<th className="hm">{tr("mk.col.chart")}</th><th className="hm">{tr("mk.col.time")}</th><th><span className="sr">{tr("mk.fav")}</span></th></tr></thead>
         <tbody>{rows.map((a, i) => (
-          <tr key={a.id} className="rowlink"><td className="mt hm">{offset + i + 1}</td>
+          <RowLink key={a.id} href={`/mercado/${a.id}`} className="rowlink"><td className="mt hm">{offset + i + 1}</td>
             <td><Link href={`/mercado/${a.id}`} className="row stretch" style={{ textDecoration: "none", color: "inherit", flexWrap: "nowrap", gap: 10 }}><Coin symbol={a.symbol.replace("USD/", "")} /><div><b>{a.symbol}</b><br /><span className="mt" style={{ fontSize: 12 }}>{a.name}</span></div></Link></td>
             <td className="num">{priceText(a, lang)}<span className="sm-only"><Chg v={a.changePct24h} lang={lang} /></span></td>
             <td className={`num hs ${a.changePct24h === null ? "" : a.changePct24h >= 0 ? "up" : "dn"}`}><Chg v={a.changePct24h} lang={lang} /></td>
             <td className="hm" style={{ width: 110 }}><Spark values={a.sparkline} up={a.sparkline.length > 1 && a.sparkline[a.sparkline.length - 1] >= a.sparkline[0]} /></td>
             <td className="hm src">{clock(a.updatedAt, lang)}{isStale(a.updatedAt, Date.now(), a.staleAfterMs) && <span className="bd a stale">{tr("home.stale")}</span>}</td>
-            <td><FavoriteButton itemType="asset" itemId={a.id} initial={favs.has(a.id)} labels={fl} metadata={{ symbol: a.symbol, name: a.name, category: a.category }} /></td></tr>))}</tbody>
+            <td><FavoriteButton itemType="asset" itemId={a.id} initial={favs.has(a.id)} labels={fl} metadata={{ symbol: a.symbol, name: a.name, category: a.category }} /></td></RowLink>))}</tbody>
       </table></div>)}
     <p className="src">{tr(p.cat === "forex" ? "mk.forexNote" : "mk.cryptoNote")} {tr("mk.scope")} {p.q && p.cat === "crypto_spot" ? tr("mk.searchLimit") : ""}</p>
     {!p.q && (p.page > 1 || r.data.hasNext) && (

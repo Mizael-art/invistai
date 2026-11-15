@@ -587,6 +587,7 @@ html.splash-out .splash-ov{opacity:0;pointer-events:none}
 .rowlink{position:relative;cursor:pointer}
 .rowlink .stretch{color:inherit;text-decoration:none}
 .rowlink .stretch:after{content:"";position:absolute;inset:0;z-index:1}
+tr.rowlink .stretch:after{content:none}   /* tabelas: clique tratado pela linha (RowLink) — Safari não posiciona ::after dentro de <tr> */
 .rowlink button,.rowlink .fav,.rowlink [data-fav]{position:relative;z-index:2}
 .rowlink:hover{background:color-mix(in srgb,var(--sf2) 55%,transparent)}
 .rowlink .stretch:focus-visible{outline:none}.rowlink:has(.stretch:focus-visible){outline:2px solid var(--g);outline-offset:-2px}
@@ -633,3 +634,7 @@ table.adm-users{width:100%}
   .adm>nav.ctabs{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px}
   .adm>nav.ctabs a{padding:8px 4px;font-size:13px;text-align:center;overflow:hidden;text-overflow:ellipsis}
 }
+
+/* iPhone: campos com fonte < 16px fazem o Safari dar zoom ao tocar. Em telas de toque todos os campos usam 16px. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+@media (pointer:coarse){input,select,textarea{font-size:16px !important}}

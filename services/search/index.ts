@@ -2,6 +2,7 @@ import { CATEGORIES } from "@/services/market/categories";
 import { normalizeText } from "@/services/market/query";
 import { forexCatalog } from "@/services/market/forex";
 import { searchCoins, type CoinSearchHit } from "@/services/market/coingecko";
+import { bybitSpotBases, rankSearch } from "@/services/market/bybit";
 import { ProviderError, type ProviderErrorCode } from "@/services/types";
 import type { CategoryKey } from "@/services/market/types";
 
@@ -39,8 +40,10 @@ export function rankAssets(q: string, crypto: SearchAsset[], forex: SearchAsset[
 }
 const ID = /^[a-z0-9][a-z0-9-]{0,80}$/;
 export interface SearchDeps { crypto: (q: string) => Promise<CoinSearchHit[]> }
+/** Cripto da busca global: só moedas negociadas na Bybit (par USDT), um resultado por símbolo. Sem a lista da Bybit, busca sem filtro. */
+const bybitCrypto = async (q: string) => { const [hits, bases] = await Promise.all([searchCoins(q, 100), bybitSpotBases()]); return rankSearch(hits, q, bases); };
 /** Busca SOMENTE ativos e mercados (nunca notícias, conteúdos ou sinais). Falha de um provedor não derruba o resto. */
-export async function runSearch(rawQ: string, lang: "pt" | "en", deps: SearchDeps = { crypto: searchCoins }): Promise<SearchResponse> {
+export async function runSearch(rawQ: string, lang: "pt" | "en", deps: SearchDeps = { crypto: bybitCrypto }): Promise<SearchResponse> {
   const q = normalizeQuery(rawQ);
   if (normalizeText(q).length < MIN_QUERY) return { q, markets: [], assets: [], errors: [] };
   const errors: SearchResponse["errors"] = []; let cryptoAssets: SearchAsset[] = [];

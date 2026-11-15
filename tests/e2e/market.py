@@ -4,7 +4,7 @@ from playwright.sync_api import sync_playwright
 from common import *
 
 m = mock()
-OK = {"COINGECKO_BASE_URL": "http://127.0.0.1:4010/ok", "FOREX_BASE_URL": "http://127.0.0.1:4010/ok/fx", "NEWS_API_BASE_URL": "http://127.0.0.1:4010/ok"}
+OK = {"BYBIT_PUBLIC_URL": "http://127.0.0.1:4010/bybitpub", "COINGECKO_BASE_URL": "http://127.0.0.1:4010/ok", "FOREX_BASE_URL": "http://127.0.0.1:4010/ok/fx", "NEWS_API_BASE_URL": "http://127.0.0.1:4010/ok"}
 s1 = start(3201, OK)
 s2 = start(3202, {"COINGECKO_BASE_URL": "http://127.0.0.1:4010/rl", "FOREX_BASE_URL": "http://127.0.0.1:4010/down"})
 B = "http://127.0.0.1:3201"
@@ -32,6 +32,8 @@ try:
         check("busca por nome retorna correspondência", names(pg) == ["BTC"])
         pg.get_by_role("button", name="Limpar busca").click(); pg.wait_for_function("!location.search.includes('q=')"); pg.wait_for_selector("tbody tr:nth-child(5)")
         check("limpar busca restaura a lista", rows(pg).count() == 24)
+        box.fill("coin"); pg.wait_for_function("location.search.includes('q=coin')", timeout=5000); pg.wait_for_function("document.querySelectorAll('tbody tr').length===4", timeout=8000)
+        check("busca só mostra moedas negociadas na Bybit (USDT, ativas), prefixo antes", names(pg) == ["C7", "C8", "C9", "BTC"], str(names(pg)))
         box.fill("zzzz"); pg.wait_for_selector("text=Nenhum resultado encontrado.", timeout=5000); check("busca sem resultado mostra mensagem", True)
         box.fill("   "); pg.wait_for_timeout(900); check("busca só com espaços é ignorada", "q=" not in pg.url)
         box.fill("")
@@ -80,6 +82,11 @@ try:
         check("mobile: sem rolagem horizontal", not mb.evaluate("document.documentElement.scrollWidth > innerWidth + 1"))
         check("mobile: colunas secundárias ocultas e preço visível", not mb.locator("th.hm").first.is_visible() and mb.locator("tbody tr td:nth-child(3)").first.is_visible())
         mb.screenshot(path="docs/screenshots/etapa02_mobile.png")
+        t = b.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True).new_page(); t.goto(B + "/mercado"); t.wait_for_selector("tbody tr"); t.wait_for_load_state("networkidle")
+        check("toque: campos com 16px (iPhone não dá zoom)", t.evaluate("[...document.querySelectorAll('input,select')].every(e => parseFloat(getComputedStyle(e).fontSize) >= 16)"))
+        check("linha da tabela não cria camada sobre a página (sem ::after esticado)", t.evaluate("getComputedStyle(document.querySelector('tr.rowlink .stretch'), '::after').content") in ("none", "normal"))
+        t.get_by_placeholder("Buscar por nome ou símbolo").tap(); t.wait_for_timeout(700); check("tocar na busca não abre moeda", t.url.endswith("/mercado"), t.url)
+        t.locator("tbody tr").nth(2).locator("td").nth(2).tap(); t.wait_for_url(re.compile(r"/mercado/[a-z0-9-]+$"), timeout=10000); check("tocar na linha (fora do link) abre a moeda daquela linha", t.url.endswith("/mercado/solana"), t.url)
         # falhas de provedor
         f = b.new_page(); f.goto("http://127.0.0.1:3202/mercado"); f.wait_for_selector(".note", timeout=15000)
         check("429 do provedor: aviso + retry, abas continuam", "Limite de requisições" in f.inner_text("main") and f.get_by_role("button", name="Tentar novamente").count() >= 1 and f.locator("nav[aria-label=Categorias] a").count() == 6)

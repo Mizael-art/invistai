@@ -34,6 +34,8 @@ http.createServer(async (req, res) => {
       + `<item><title>Velha</title><link>https://${name}/old</link><pubDate>${t(24 * 30)}</pubDate></item><item><title>XSS</title><link>javascript:alert(1)</link><pubDate>${t(1)}</pubDate></item>`;
     res.writeHead(200, { "content-type": "application/rss+xml; charset=utf-8" }); return res.end(`<?xml version="1.0"?><rss version="2.0"><channel><title>${name}</title>${items}</channel></rss>`);
   }
+  // Bybit pública (lista de pares spot): só alguns ativos do mock "existem" na Bybit.
+  if (u.pathname === "/bybitpub/v5/market/instruments-info") return send(200, { retCode: 0, result: { list: [...["BTC", "ETH", "SOL", "XRP", "C7", "C8", "C9"].map((b) => ({ baseCoin: b, quoteCoin: "USDT", status: "Trading" })), { baseCoin: "C10", quoteCoin: "USDT", status: "Closed" }, { baseCoin: "C11", quoteCoin: "USDC", status: "Trading" }] } });
   if (u.pathname === "/__search_calls") return send(200, { n: globalThis.__searchCalls || 0 });
   if (u.pathname.startsWith("/ok/fx")) return send(200, fx);
   const ev = u.pathname.match(/^\/(ok|part)\/everything/);

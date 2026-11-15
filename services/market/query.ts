@@ -4,7 +4,8 @@ import { toResult, type Result } from "../types";
 import type { MarketParams } from "@/schemas/market";
 import type { Asset } from "./types";
 import { categoryOf } from "./categories";
-import { fetchMarkets, searchCoinIds } from "./coingecko";
+import { fetchMarkets, searchCoins } from "./coingecko";
+import { bybitSpotBases, rankSearch } from "./bybit";
 import { fetchForexPairs } from "./forex";
 import { ProviderError } from "../types";
 
@@ -33,9 +34,12 @@ async function load(p: MarketParams): Promise<MarketPage> {
   const def = categoryOf(p.cat);
   if (def.provider === "coingecko") {
     if (p.q) {
-      const ids = await searchCoinIds(p.q);
+      // Busca restrita às moedas negociadas na Bybit (par USDT); se a lista da Bybit falhar, busca sem o filtro.
+      const [coins, bases] = await Promise.all([searchCoins(p.q, 100), bybitSpotBases()]);
+      const ids = rankSearch(coins, p.q, bases).map((c) => c.id);
       if (ids.length === 0) return { items: [], hasNext: false };
-      return { items: (await fetchMarkets({ ids })).items, hasNext: false };
+      const items = (await fetchMarkets({ ids })).items, pos = new Map(ids.map((id, i) => [id, i]));
+      return { items: items.sort((a, b) => (pos.get(a.id) ?? 99) - (pos.get(b.id) ?? 99)), hasNext: false };
     }
     const r = await fetchMarkets({ page: p.page, perPage: PER_PAGE });
     return { items: r.items, hasNext: r.rawCount >= PER_PAGE && p.page < 200 };

@@ -69,7 +69,6 @@ export function parseSearchIds(json: unknown, max = 20): string[] {
 export async function searchCoinIds(query: string): Promise<string[]> {
   return parseSearchIds(await cgGet(`/search?query=${encodeURIComponent(query)}`));
 }
-
 const num = z.number().nullable().optional();
 const usd = z.object({ usd: num }).partial().nullable().optional();
 const Detail = z.object({
@@ -111,4 +110,4 @@ export function parseSearchCoins(json: unknown, max = 20): CoinSearchHit[] {
   for (const raw of top.data.coins) { const c = CoinHit.safeParse(raw); if (c.success) out.push({ id: c.data.id, name: c.data.name, symbol: c.data.symbol.toUpperCase(), rank: c.data.market_cap_rank ?? null }); if (out.length >= max) break; }
   return out;
 }
-export async function searchCoins(query: string): Promise<CoinSearchHit[]> { return parseSearchCoins(await cgGet(`/search?query=${encodeURIComponent(query)}`)); }
+export async function searchCoins(query: string, max = 20): Promise<CoinSearchHit[]> { return parseSearchCoins(await cgGet(`/search?query=${encodeURIComponent(query)}`), max); }
