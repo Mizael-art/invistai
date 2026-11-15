@@ -28,9 +28,10 @@ export default async function Assinatura({ searchParams }: { searchParams: Promi
       <div><small>{tr("pl.currentPlan")}</small><b data-testid="cur-plan">{PLANS[ent.plan].name}</b></div>
       <div><small>Status</small><b><span className={`bd ${st === "active" || st === "trialing" ? "" : st === "past_due" ? "a" : st === "none" ? "v" : "r"}`} data-testid="cur-status">{tr(`pl.st.${st}` as never)}</span></b></div>
       <div><small>{tr("pl.since")}</small><b>{date(s?.started_at ?? null)}</b></div>
-      <div><small>{s?.cancel_at_period_end || st === "canceled" ? tr("pl.ends") : tr("pl.renews")}</small><b>{ent.plan === "free" ? "—" : date(s?.current_period_end ?? null)}</b></div>
+      <div><small>{s?.cancel_at_period_end || st === "canceled" ? tr("pl.ends") : tr("pl.renews")}</small><b>{ent.plan === "free" ? "—" : ent.grant?.plan_id === ent.plan ? date(ent.grant.expires_at) : date(s?.current_period_end ?? null)}</b></div>
       <div><small>{tr("pl.aiUsage")}</small><b data-testid="ai-quota">{quota ? (quota.limit === null ? tr("pl.aiUnlimited") : tr("pl.aiUsed", { used: String(Math.min(quota.used, quota.limit)), limit: String(quota.limit) })) : "—"}</b></div>
     </section>
+    {ent.grant && ent.grant.plan_id === ent.plan && <p className="note" role="status" data-testid="plan-grant">{lang === "pt" ? `Plano ${PLANS[ent.grant.plan_id].name} liberado pela equipe TRADEON, sem cobrança${ent.grant.expires_at ? `, até ${date(ent.grant.expires_at)}` : ""}.` : `${PLANS[ent.grant.plan_id].name} plan granted by the TRADEON team, free of charge${ent.grant.expires_at ? `, until ${date(ent.grant.expires_at)}` : ""}.`}</p>}
     {s?.cancel_at_period_end && ent.plan !== "free" && <p className="note" role="status">{tr("pl.cancelNote", { date: date(s.current_period_end) })}</p>}
     {st === "past_due" && ent.plan !== "free" && <p className="note" role="alert">{tr("pl.pastDueNote", { date: date(s?.current_period_end ?? null) })}</p>}
 

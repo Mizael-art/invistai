@@ -28,7 +28,7 @@ export async function getCall(id: string): Promise<{ call: VipCall; events: Call
 export async function adminOverview(): Promise<Record<string, unknown> | null> {
   const sb = await getSupabase(); if (!sb) return null; const { data, error } = await sb.rpc("admin_overview"); return error ? null : (data as Record<string, unknown>);
 }
-export interface AdminUser { id: string; email: string; name: string | null; created_at: string; plan: string; sub_status: string | null; period_end: string | null; ai_used: number; is_admin: boolean }
+export interface AdminUser { id: string; email: string; name: string | null; created_at: string; plan: string; sub_status: string | null; period_end: string | null; ai_used: number; is_admin: boolean; sub_plan: string | null; grant_plan: "pro" | "max" | null; grant_expires: string | null }
 export async function adminListUsers(search = "", offset = 0): Promise<AdminUser[] | null> {
   const sb = await getSupabase(); if (!sb) return null; const { data, error } = await sb.rpc("admin_list_users", { p_search: search || null, p_limit: 50, p_offset: offset }); return error ? null : (data as AdminUser[]);
 }

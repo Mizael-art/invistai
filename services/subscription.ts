@@ -2,18 +2,25 @@ import { cache } from "react";
 import { NextResponse } from "next/server";
 import { getSupabase } from "@/lib/supabase/server";
 import { getSessionUser, type SessionUser } from "./session";
-import { can, effectivePlan, minPlanFor, type Feature, type PlanId } from "@/lib/plans";
+import { PLANS, can, effectivePlan, isPlanId, minPlanFor, type Feature, type PlanId } from "@/lib/plans";
 
 export interface SubscriptionRow { plan_id: string; status: string; provider: string | null; provider_customer_id: string | null; started_at: string | null; current_period_start: string | null; current_period_end: string | null; cancel_at_period_end: boolean; canceled_at: string | null; updated_at: string }
-export interface Entitlements { user: SessionUser; plan: PlanId; sub: SubscriptionRow | null }
+export interface PlanGrant { plan_id: "pro" | "max"; expires_at: string | null }
+export interface Entitlements { user: SessionUser; plan: PlanId; sub: SubscriptionRow | null; grant: PlanGrant | null }
 
 /** Assinatura e plano efetivo do usuário logado (lidos com a sessão dele; RLS garante que só vê a própria). */
 export const getEntitlements = cache(async (): Promise<Entitlements | null> => {
   const user = await getSessionUser(); if (!user) return null;
-  const sb = await getSupabase(); if (!sb) return { user, plan: "free", sub: null };
-  const { data } = await sb.from("subscriptions").select("plan_id,status,provider,provider_customer_id,started_at,current_period_start,current_period_end,cancel_at_period_end,canceled_at,updated_at").eq("user_id", user.id).maybeSingle();
+  const sb = await getSupabase(); if (!sb) return { user, plan: "free", sub: null, grant: null };
+  const [{ data }, g] = await Promise.all([
+    sb.from("subscriptions").select("plan_id,status,provider,provider_customer_id,started_at,current_period_start,current_period_end,cancel_at_period_end,canceled_at,updated_at").eq("user_id", user.id).maybeSingle(),
+    sb.from("plan_grants").select("plan_id,expires_at").eq("user_id", user.id).maybeSingle(),
+  ]);
   const sub = (data as SubscriptionRow | null) ?? null;
-  return { user, plan: effectivePlan(sub), sub };
+  // Plano concedido pela equipe (cortesia, sem cobrança): vale enquanto não vencer; prevalece o maior dos dois — igual a public.current_plan.
+  const gr = (g.data as PlanGrant | null) ?? null; const grant = gr && isPlanId(gr.plan_id) && (!gr.expires_at || Date.parse(gr.expires_at) > Date.now()) ? gr : null;
+  const paid = effectivePlan(sub); const plan = grant && PLANS[grant.plan_id].rank > PLANS[paid].rank ? grant.plan_id : paid;
+  return { user, plan, sub, grant };
 });
 
 /** Porteiro das APIs premium: 401 sem sessão, 403 (com o plano necessário) sem permissão. */

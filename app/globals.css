@@ -616,3 +616,20 @@ html.splash-out .splash-ov{opacity:0;pointer-events:none}
 .bk-howto{margin:12px 0;padding-left:20px;font-size:13.5px;color:var(--mt);display:grid;gap:4px}
 .bk-new{max-width:760px}
 td.up,b.up{color:var(--g-tx)}td.dn,b.dn{color:var(--rd)}
+/* Admin: a grade não pode ser alargada por tabelas/abas (no celular cortava a página). */
+.adm{grid-template-columns:minmax(0,1fr)}.adm>*{min-width:0}
+.adm .page-h p,.adm .src{overflow-wrap:anywhere}
+.adm-plan{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.adm-plan select{min-height:36px;width:auto;padding:0 30px 0 10px}
+table.adm-users{width:100%}
+@media (max-width:760px){
+  table.adm-users thead{display:none}
+  table.adm-users,table.adm-users tbody,table.adm-users tr,table.adm-users td{display:block;width:100%}
+  table.adm-users tr{padding:14px 0;border-bottom:1px solid var(--bd)}table.adm-users tr:last-child{border-bottom:0}
+  table.adm-users td{border:0;padding:4px 0;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:flex-end;text-align:right}
+  table.adm-users td::before{content:attr(data-l);color:var(--mt);font-size:12px;text-transform:uppercase;letter-spacing:.04em;text-align:left;margin-right:auto}
+  table.adm-users td:first-child{display:block;text-align:left}table.adm-users td:first-child::before{content:none}
+  table.adm-users td:not(:first-child)>.src{flex-basis:100%;text-align:right}
+  .adm>nav.ctabs{width:100%;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:2px}
+  .adm>nav.ctabs a{padding:8px 4px;font-size:13px;text-align:center;overflow:hidden;text-overflow:ellipsis}
+}

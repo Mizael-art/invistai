@@ -29,15 +29,19 @@ const session = (email) => {
 };
 // ----- Etapa 1: assinaturas/cota (espelha as regras das migrações 10/11; a lógica SQL real é testada no PGlite) -----
 const BILLING_SECRET = "test-billing-secret-0123456789abcdef-0123";
+const grants = new Map(); // user_id -> { plan_id, expires_at, note }
 const subs = new Map(), payments = [], subEvents = [], aiUsage = new Map(), webhookEvents = new Set();
 const PLAN_LIMIT = { free: 3, pro: null, max: null };
-const curPlan = (uid) => { const s = subs.get(uid); return s && ["pro", "max"].includes(s.plan_id) && ["active", "trialing", "past_due"].includes(s.status) && (!s.current_period_end || new Date(s.current_period_end) > new Date()) ? s.plan_id : "free"; };
+const paidPlan = (uid) => { const s = subs.get(uid); return s && ["pro", "max"].includes(s.plan_id) && ["active", "trialing", "past_due"].includes(s.status) && (!s.current_period_end || new Date(s.current_period_end) > new Date()) ? s.plan_id : "free"; };
+const liveGrant = (uid) => { const g = grants.get(uid); return g && (!g.expires_at || new Date(g.expires_at) > new Date()) ? g : null; };
+const RANK = { free: 0, pro: 1, max: 2 };
+const curPlan = (uid) => { const p = paidPlan(uid), g = liveGrant(uid); return g && RANK[g.plan_id] > RANK[p] ? g.plan_id : p; };
 const subRow = (uid) => subs.get(uid) || { plan_id: "free", status: "none", provider: null, provider_customer_id: null, provider_subscription_id: null, started_at: null, current_period_start: null, current_period_end: null, cancel_at_period_end: false, canceled_at: null, updated_at: new Date().toISOString() };
 const aiTables = { ai_conversations: [], ai_messages: [] }; let aiSeq = 0; const aiRpc = [];
 const admins = new Set(); const vipCalls = []; const vipEvents = []; const audit = []; let evSeq = 0;
 const train = { instructions: '', instructions_updated_at: null, docs: [], examples: [] };
 const brokers = [];
-const resetBilling = () => { brokers.length = 0; train.instructions = ''; train.instructions_updated_at = null; train.docs.length = 0; train.examples.length = 0; admins.clear(); vipCalls.length = 0; vipEvents.length = 0; audit.length = 0; aiTables.ai_conversations.length = 0; aiTables.ai_messages.length = 0; aiRpc.length = 0; subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
+const resetBilling = () => { grants.clear(); brokers.length = 0; train.instructions = ''; train.instructions_updated_at = null; train.docs.length = 0; train.examples.length = 0; admins.clear(); vipCalls.length = 0; vipEvents.length = 0; audit.length = 0; aiTables.ai_conversations.length = 0; aiTables.ai_messages.length = 0; aiRpc.length = 0; subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
 const readBody = (req) => new Promise((r) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => { try { r(JSON.parse(d || "{}")); } catch { r({}); } }); });
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), send = (c, b, h = {}) => { res.writeHead(c, { "content-type": "application/json", ...h }); res.end(b === undefined ? "" : JSON.stringify(b)); };
@@ -198,6 +202,9 @@ http.createServer(async (req, res) => {
     if (req.method === "GET") { const row = prefsStore.get(eq("user_id")); return row ? send(200, wantsObject ? row : [row]) : wantsObject ? send(406, { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned", details: "The result contains 0 rows", hint: null }) : send(200, []); }
     if (req.method === "POST" || req.method === "PATCH") { const body = await readBody(req); for (const b of Array.isArray(body) ? body : [body]) { const id = b.user_id || eq("user_id"); prefsStore.set(id, { news_categories: [], notification_categories: [], ...(prefsStore.get(id) || {}), ...b }); stats.prefWrites.push(b); } return send(201); }
   }
+  if (u.pathname === "/rest/v1/plan_grants") { if (req.method !== "GET") return send(403, { code: "42501", message: "permission denied" }); const sub = subOf(req), id = eq("user_id"); const g = sub && id === sub ? grants.get(sub) : null;
+    if ((u.searchParams.get("select") || "*").split(",").some((c) => !["user_id", "plan_id", "expires_at", "granted_at"].includes(c))) return send(403, { code: "42501", message: "permission denied for table plan_grants" });
+    const row = g ? { user_id: sub, plan_id: g.plan_id, expires_at: g.expires_at, granted_at: g.granted_at } : null; return row ? send(200, wantsObject ? row : [row]) : wantsObject ? send(406, { code: "PGRST116" }) : send(200, []); }
   if (u.pathname === "/rest/v1/subscriptions" && req.method === "GET") { const sub = subOf(req), id = eq("user_id"); if (!sub || id !== sub) return wantsObject ? send(406, { code: "PGRST116" }) : send(200, []); const row = subRow(sub); return send(200, wantsObject ? row : [row]); }
   if (["/rest/v1/subscriptions", "/rest/v1/subscription_payments", "/rest/v1/subscription_events", "/rest/v1/ai_usage"].includes(u.pathname) && req.method !== "GET") return send(403, { code: "42501", message: "permission denied" });
   if (u.pathname === "/rest/v1/subscription_payments" && req.method === "GET") { const sub = subOf(req); return send(200, payments.filter((p) => p.user_id === sub).slice().reverse().map(({ user_id, ...r }) => r)); }
@@ -353,8 +360,11 @@ http.createServer(async (req, res) => {
     if (fn === "admin_overview") { const plans = {}; for (const [uid] of subs) plans[curPlan(uid)] = (plans[curPlan(uid)] || 0) + 1; const cs = {}; for (const x of vipCalls) cs[x.status] = (cs[x.status] || 0) + 1;
       return send(200, { users: subs.size, plans, subscriptions: {}, mrr_cents: [...subs.keys()].reduce((a, uid) => a + ({ pro: 3000, max: 5000 }[curPlan(uid)] || 0), 0), canceled_30d: 0, payments_30d: null, ai_30d: { requests: 0, errors: 0, blocked: 0, input_tokens: 0, output_tokens: 0, avg_latency_ms: null }, calls: cs, generated_at: now() }); }
     if (fn === "admin_list_users") { const all = [...new Set([...subs.keys(), ...admins])]; const emailOf = (id) => idEmail.get(id) ?? [...created.entries()].find(([, v]) => v.id === id)?.[0] ?? Object.entries(USERS).find(([, v]) => v.id === id)?.[0] ?? `${id.slice(0, 6)}@teste.com`;
-      return send(200, all.map((id) => ({ id, email: emailOf(id), name: "Maria Teste", created_at: now(), plan: curPlan(id), sub_status: subs.get(id)?.status ?? null, period_end: subs.get(id)?.current_period_end ?? null, ai_used: aiUsage.get(id) || 0, is_admin: admins.has(id) }))
+      return send(200, all.map((id) => ({ id, email: emailOf(id), name: "Maria Teste", created_at: now(), plan: curPlan(id), sub_status: subs.get(id)?.status ?? null, period_end: subs.get(id)?.current_period_end ?? null, ai_used: aiUsage.get(id) || 0, is_admin: admins.has(id), sub_plan: subs.get(id)?.plan_id ?? null, grant_plan: liveGrant(id)?.plan_id ?? null, grant_expires: liveGrant(id)?.expires_at ?? null }))
         .filter((x) => !b.p_search || x.email.includes(b.p_search))); }
+    if (fn === "admin_set_plan") { if (!["free", "pro", "max"].includes(b.p_plan)) return err("invalid_plan"); if (b.p_days != null && (b.p_days < 1 || b.p_days > 3650)) return err("invalid_days");
+      const prev = grants.get(b.p_user)?.plan_id ?? null; if (b.p_plan === "free") grants.delete(b.p_user); else grants.set(b.p_user, { plan_id: b.p_plan, expires_at: b.p_days ? new Date(Date.now() + b.p_days * 864e5).toISOString() : null, note: b.p_note ?? null, granted_at: now() });
+      if (!subs.has(b.p_user)) subs.set(b.p_user, subRow(b.p_user)); log(b.p_plan === "free" ? "plan.revoke" : "plan.grant", null, { plan: b.p_plan, previous: prev, days: b.p_days ?? null }); audit[audit.length - 1].target_id = b.p_user; return send(200, null); }
     if (fn === "admin_set_admin") { if (b.p_user === sub && !b.p_admin) return err("cannot_remove_self"); if (b.p_admin) admins.add(b.p_user); else admins.delete(b.p_user); log(b.p_admin ? "admin.grant" : "admin.revoke", null); return send(200, null); }
     if (fn === "admin_audit") return send(200, [...audit].reverse().slice(0, b.p_limit || 50));
     return send(404, { code: "PGRST202" });

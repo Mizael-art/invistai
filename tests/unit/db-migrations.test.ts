@@ -29,7 +29,7 @@ beforeAll(async () => {
 describe("migrações em Postgres real", () => {
   it("todas aplicam em ordem e as tabelas têm RLS ligada", async () => {
     const r = await db.query<{ relname: string; relrowsecurity: boolean }>(`select relname, relrowsecurity from pg_class where relnamespace='public'::regnamespace and relkind='r' order by 1`);
-    expect(r.rows.map((x) => x.relname)).toEqual(["admin_audit_logs", "ai_conversations", "ai_examples", "ai_knowledge", "ai_knowledge_chunks", "ai_messages", "ai_requests", "ai_settings", "ai_usage", "app_admins", "broker_connections", "favorites", "notifications", "payment_webhook_events", "profiles", "subscription_events", "subscription_payments", "subscription_plans", "subscriptions", "user_preferences", "vip_call_events", "vip_calls"]);
+    expect(r.rows.map((x) => x.relname)).toEqual(["admin_audit_logs", "ai_conversations", "ai_examples", "ai_knowledge", "ai_knowledge_chunks", "ai_messages", "ai_requests", "ai_settings", "ai_usage", "app_admins", "broker_connections", "favorites", "notifications", "payment_webhook_events", "plan_grants", "profiles", "subscription_events", "subscription_payments", "subscription_plans", "subscriptions", "user_preferences", "vip_call_events", "vip_calls"]);
     expect(r.rows.every((x) => x.relrowsecurity)).toBe(true);
   });
   it("cadastro cria perfil (nome; telefone só em E.164) e notificação de boas-vindas", async () => {
@@ -370,5 +370,53 @@ describe("Conexões com corretoras (Postgres real)", () => {
       expect((await db.query("select status, bots_allowed, last_error from public.broker_connections")).rows).toEqual([{ status: "invalid", bots_allowed: false, last_error: "invalid_key" }]);
       await db.query("delete from public.broker_connections where id = $1", [id]); expect((await db.query("select id from public.broker_connections")).rows).toEqual([]);
     });
+  });
+});
+
+describe("Plano concedido pelo administrador (cortesia, não pagamento)", () => {
+  const ADM = "c1c1c1c1-c1c1-4c1c-8c1c-c1c1c1c1c1c1", U = "c2c2c2c2-c2c2-4c2c-8c2c-c2c2c2c2c2c2", P = "c3c3c3c3-c3c3-4c3c-8c3c-c3c3c3c3c3c3", S = "s".repeat(40);
+  beforeAll(async () => {
+    await db.query("insert into auth.users (id, email) values ($1, 'gadm@t.com'), ($2, 'gu@t.com'), ($3, 'gpaid@t.com')", [ADM, U, P]);
+    await db.query("insert into public.app_admins (user_id) values ($1)", [ADM]);
+    await db.query(`select public.billing_sync_subscription($1, $2, 'pro', 'active', 'stripe', 'cus_g', 'sub_g', now(), now(), now() + interval '30 days', false, null, 'teste')`, [S, P]);
+  });
+  const plan = async (uid: string) => (await db.query<{ p: string }>("select public.current_plan($1) p", [uid])).rows[0].p;
+  it("só admin concede; usuário não se dá plano nem escreve na tabela", async () => {
+    await as(U, async () => {
+      expect(await fails(db.query("select public.admin_set_plan($1, 'max')", [U]))).toBe(true);
+      expect(await fails(db.query("insert into public.plan_grants (user_id, plan_id) values ($1, 'max')", [U]))).toBe(true);
+    });
+    expect(await plan(U)).toBe("free");
+  });
+  it("concede PRO/MAX com ou sem prazo, sem tocar em assinatura/pagamento; auditado", async () => {
+    await as(ADM, async () => { await db.query("select public.admin_set_plan($1, 'max', 30, 'parceiro')", [U]); });
+    expect(await plan(U)).toBe("max");
+    await as(U, async () => {
+      expect((await db.query<{ p: string }>("select public.my_plan() p")).rows[0].p).toBe("max");
+      expect((await db.query("select plan_id from public.plan_grants")).rows).toEqual([{ plan_id: "max" }]);
+      expect(await fails(db.query("select note from public.plan_grants"))).toBe(true);
+    });
+    expect((await db.query("select count(*)::int n from public.subscription_payments where user_id = $1", [U])).rows[0]).toEqual({ n: 0 });
+    expect((await db.query("select plan_id, status from public.subscriptions where user_id = $1", [U])).rows).toEqual([{ plan_id: "free", status: "none" }]);
+    const a = await db.query<{ action: string; details: { plan: string; days: number } }>("select action, details from public.admin_audit_logs where target_id = $1 order by created_at", [U]);
+    expect(a.rows.map((x) => [x.action, x.details.plan, x.details.days])).toEqual([["plan.grant", "max", 30]]);
+    await as(ADM, async () => {
+      const r = await db.query<{ plan: string; grant_plan: string; grant_expires: string | null }>("select plan, grant_plan, grant_expires from public.admin_list_users('gu@')");
+      expect(r.rows[0].plan).toBe("max"); expect(r.rows[0].grant_plan).toBe("max"); expect(r.rows[0].grant_expires).not.toBeNull();
+      await db.query("select public.admin_set_plan($1, 'pro')", [U]);
+    });
+    expect(await plan(U)).toBe("pro");
+    expect((await db.query("select expires_at from public.plan_grants where user_id = $1", [U])).rows).toEqual([{ expires_at: null }]);
+  });
+  it("concessão vencida não vale; FREE remove a cortesia mas não cancela assinatura paga; maior plano prevalece", async () => {
+    await db.query("update public.plan_grants set expires_at = now() - interval '1 minute' where user_id = $1", [U]);
+    expect(await plan(U)).toBe("free");
+    await as(ADM, async () => {
+      await db.query("select public.admin_set_plan($1, 'max')", [P]); expect((await db.query<{ plan: string }>("select plan from public.admin_list_users('gpaid@')")).rows[0].plan).toBe("max");
+      await db.query("select public.admin_set_plan($1, 'free')", [P]);
+      for (const q of ["select public.admin_set_plan($1, 'gold')", "select public.admin_set_plan($1, 'pro', 0)", "select public.admin_set_plan($1, 'pro', 99999)"]) expect(await fails(db.query(q, [P])), q).toBe(true);
+      expect(await fails(db.query("select public.admin_set_plan('c9c9c9c9-c9c9-4c9c-8c9c-c9c9c9c9c9c9', 'pro')"))).toBe(true);
+    });
+    expect(await plan(P)).toBe("pro");
   });
 });
