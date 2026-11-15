@@ -57,7 +57,7 @@ export function pickUniverse(json: unknown, limit: number): { symbol: string; qu
   const out: { symbol: string; quoteVolume: number; changePct: number; price: number }[] = [];
   for (const raw of p.data) {
     const t = T24.safeParse(raw); if (!t.success) continue; const s = t.data.symbol; if (!s.endsWith("USDT")) continue;
-    const base = s.slice(0, -4); if (STABLE.has(base) || NON_CRYPTO.has(base) || /(UP|DOWN|BULL|BEAR)$/.test(base) || !+t.data.lastPrice) continue;
+    const base = s.slice(0, -4); if (STABLE.has(base) || NON_CRYPTO.has(base) || /USD|EUR$/.test(base) || /(UP|DOWN|BULL|BEAR)$/.test(base) || !+t.data.lastPrice) continue;
     out.push({ symbol: s, quoteVolume: +t.data.quoteVolume, changePct: +t.data.priceChangePercent, price: +t.data.lastPrice });
   }
   return out.sort((a, b) => b.quoteVolume - a.quoteVolume).slice(0, limit);

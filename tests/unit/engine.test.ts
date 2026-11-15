@@ -96,7 +96,7 @@ describe("provedores", () => {
   });
   it("universo do scanner: só USDT, sem stablecoins/alavancados/ouro e ações tokenizadas, por volume", () => {
     const row = (symbol: string, qv: string) => ({ symbol, lastPrice: "1", priceChangePercent: "1", highPrice: "1", lowPrice: "1", quoteVolume: qv, closeTime: 1 });
-    const u = pickUniverse([row("BTCUSDT", "9"), row("USDCUSDT", "99"), row("ETHUPUSDT", "50"), row("ETHBTC", "70"), row("SOLUSDT", "20"), row("XAUTUSDT", "80"), row("MSTRBUSDT", "60")], 5);
+    const u = pickUniverse([row("BTCUSDT", "9"), row("USDCUSDT", "99"), row("ETHUPUSDT", "50"), row("ETHBTC", "70"), row("SOLUSDT", "20"), row("XAUTUSDT", "80"), row("MSTRBUSDT", "60"), row("RWUSDUSDT", "95"), row("USDSUSDT", "94"), row("EURUSDT", "93")], 5);
     expect(u.map((x) => x.symbol)).toEqual(["SOLUSDT", "BTCUSDT"]);
   });
   it("série de forex: só fechamento, ordenada", () => {
