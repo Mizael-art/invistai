@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   if (u.searchParams.get("full") === "1" && env) {
     const t0 = Date.now();
     try {
-      const r = await runChat(env, systemPrompt({ plan: "pro", lang: "pt" }), [{ role: "user", content: u.searchParams.get("q")?.slice(0, 200) || "Analise o BTC agora" }], { userId: "00000000-0000-0000-0000-000000000000", lang: "pt" }, 50_000);
+      const r = await runChat(env, systemPrompt({ plan: "pro", lang: "pt" }), [{ role: "user", content: u.searchParams.get("q")?.slice(0, 200) || "Analise o BTC agora" }], { userId: "00000000-0000-0000-0000-000000000000", lang: "pt" }, 35_000);
       full = { ok: true, ms: Date.now() - t0, tools: r.tools, blocks: r.blocks.map((x) => x.type), tokens: { in: r.inputTokens, out: r.outputTokens }, text: r.text.slice(0, 1500) };
     } catch (e) { full = { ok: false, ms: Date.now() - t0, error: e instanceof LlmError ? e.code : "unexpected" }; }
   }

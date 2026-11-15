@@ -10,8 +10,8 @@ export async function probe(env: LlmEnv | null) {
     if (r.ok) { const j = await r.json() as { data?: { id: string }[] }; models = (j.data ?? []).map((m) => m.id.replace(/^models\//, "")).slice(0, 60); } } catch {}
   try {
     const r = env.provider === "anthropic"
-      ? await fetch(`${env.baseUrl}/v1/messages`, { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ model: env.model, max_tokens: 10, messages: [{ role: "user", content: "Responda apenas: OK" }] }), cache: "no-store", signal: AbortSignal.timeout(15000) })
-      : await fetch(`${env.baseUrl}/chat/completions`, { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ model: env.model, max_tokens: 10, messages: [{ role: "user", content: "Responda apenas: OK" }] }), cache: "no-store", signal: AbortSignal.timeout(15000) });
+      ? await fetch(`${env.baseUrl}/v1/messages`, { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ model: env.model, max_tokens: 10, messages: [{ role: "user", content: "Responda apenas: OK" }] }), cache: "no-store", signal: AbortSignal.timeout(12000) })
+      : await fetch(`${env.baseUrl}/chat/completions`, { method: "POST", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ model: env.model, max_tokens: 10, messages: [{ role: "user", content: "Responda apenas: OK" }] }), cache: "no-store", signal: AbortSignal.timeout(12000) });
     const j = await r.json().catch(() => ({})) as { error?: { message?: string } | { message?: string }[] };
     const msg = Array.isArray(j.error) ? j.error[0]?.message : j.error?.message;
     return { configured: true, host, model: env.model, ok: r.ok, status: r.status, latencyMs: Date.now() - t0, error: r.ok ? null : (msg ?? `HTTP ${r.status}`).slice(0, 300), models };
