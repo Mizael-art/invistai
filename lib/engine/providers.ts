@@ -49,13 +49,15 @@ export const cryptoProvider: MarketProvider = {
   },
 };
 /** Universo para o scanner: pares em USDT por volume em 24h (exclui stablecoins e tokens alavancados). */
+/** Fora do universo de cripto: ouro tokenizado e ações tokenizadas (não são criptoativos para fins de análise). */
+const NON_CRYPTO = new Set(["XAUT", "PAXG", "MSTRB", "CRCLB", "TSLAB", "AAPLB", "NVDAB", "COINB", "HOODB", "GOOGLB", "AMZNB", "METAB", "SPYB", "QQQB", "MSFTB"]);
 const STABLE = new Set(["USDC", "FDUSD", "TUSD", "BUSD", "DAI", "USDP", "EUR", "AEUR", "USDE", "PYUSD", "XUSD", "USD1", "EURI", "BFUSD", "RLUSD"]);
 export function pickUniverse(json: unknown, limit: number): { symbol: string; quoteVolume: number; changePct: number; price: number }[] {
   const p = z.array(z.unknown()).safeParse(json); if (!p.success) throw new EngineError("invalid_response");
   const out: { symbol: string; quoteVolume: number; changePct: number; price: number }[] = [];
   for (const raw of p.data) {
     const t = T24.safeParse(raw); if (!t.success) continue; const s = t.data.symbol; if (!s.endsWith("USDT")) continue;
-    const base = s.slice(0, -4); if (STABLE.has(base) || /(UP|DOWN|BULL|BEAR)$/.test(base) || !+t.data.lastPrice) continue;
+    const base = s.slice(0, -4); if (STABLE.has(base) || NON_CRYPTO.has(base) || /(UP|DOWN|BULL|BEAR)$/.test(base) || !+t.data.lastPrice) continue;
     out.push({ symbol: s, quoteVolume: +t.data.quoteVolume, changePct: +t.data.priceChangePercent, price: +t.data.lastPrice });
   }
   return out.sort((a, b) => b.quoteVolume - a.quoteVolume).slice(0, limit);
