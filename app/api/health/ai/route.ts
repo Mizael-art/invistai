@@ -15,9 +15,12 @@ export async function GET(req: Request) {
   const a = Buffer.from(got), b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (!rateLimit("health:ai", 6, 60_000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
-  const [primary, fallback] = await Promise.all([probe(llmEnv()), probe(llmFallbackEnv())]);
+  // Diagnóstico de candidatos: ?model= testa outro modelo na principal; ?use=fallback roda a análise completa na reserva.
+  const override = u.searchParams.get("model"); const okModel = override && /^[a-z0-9][a-z0-9.\/_-]{1,60}$/i.test(override);
+  const base = llmEnv(); const prim = base && okModel ? { ...base, model: override! } : base;
+  const [primary, fallback] = await Promise.all([probe(prim), probe(llmFallbackEnv())]);
   let full: unknown = null;
-  const env = llmEnv();
+  const env = u.searchParams.get("use") === "fallback" ? llmFallbackEnv() : prim;
   if (u.searchParams.get("full") === "1" && env) {
     const t0 = Date.now();
     try {
