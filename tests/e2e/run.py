@@ -45,8 +45,8 @@ try:
         pg.get_by_role("button", name="Atualizar dados").click(); pg.wait_for_timeout(1200)
         check("A: atualizar dados mantém a página funcional", pg.locator(".lrow[data-asset]").count() == 5)
         # navegação
-        pg.get_by_role("link", name="VIP").first.click(); pg.wait_for_url("**/vip"); pg.wait_for_function("!!document.querySelector('h1')?.innerText.includes('Em breve')", timeout=8000)
-        check("A: VIP abre 'Em breve'", "Em breve" in pg.inner_text("h1") and pg.locator("aside a.nav.on").inner_text().strip() == "VIP")
+        pg.get_by_role("link", name="VIP").first.click(); pg.wait_for_url("**/vip"); pg.wait_for_function("document.querySelector('h1')?.innerText === 'VIP'", timeout=8000)
+        check("A: VIP abre o hub (Calls VIP + módulos 'Em breve')", pg.get_by_test_id("vip-calls").is_visible() and pg.locator("aside a.nav.on").inner_text().strip() == "VIP")
         pg.get_by_role("link", name="Aprender").first.click(); pg.wait_for_url("**/aprender"); pg.wait_for_function("!!document.querySelector('h1')?.innerText.includes('Em breve')", timeout=8000)
         check("A: Aprender abre 'Em breve'", "Em breve" in pg.inner_text("h1"))
         pg.get_by_role("link", name="Voltar ao Início").click(); pg.wait_for_selector(".lrow")

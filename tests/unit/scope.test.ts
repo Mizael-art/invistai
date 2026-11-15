@@ -14,7 +14,7 @@ describe("escopo: VIP e Aprender somente 'Em breve'", () => {
     for (const p of ["app/(app)/vip/checkout", "app/(app)/vip/planos", "app/(app)/aprender/cursos", "app/vip", "app/aprender", "app/api/checkout", "app/api/subscriptions", "app/api/signals", "services/billing", "services/signals", "services/telegram"])
       expect(existsSync(path.join(root, p)), p).toBe(false);
   });
-  it("as páginas /vip e /aprender usam apenas o componente ComingSoon", () => {
-    for (const f of ["app/(app)/vip/page.tsx", "app/(app)/aprender/page.tsx"]) { const src = readFileSync(path.join(root, f), "utf8"); expect(src).toContain("ComingSoon"); expect(src).not.toMatch(/fetch\(|supabase|services\//i); }
+  it("/aprender usa apenas o componente ComingSoon (o VIP virou hub do ecossistema na Etapa 3)", () => {
+    for (const f of ["app/(app)/aprender/page.tsx"]) { const src = readFileSync(path.join(root, f), "utf8"); expect(src).toContain("ComingSoon"); expect(src).not.toMatch(/fetch\(|supabase|services\//i); }
   });
 });

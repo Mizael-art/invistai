@@ -11,7 +11,7 @@ import { badgeText } from "@/lib/notifications";
 const getCookie = (k: string) => document.cookie.split("; ").find((c) => c.startsWith(k + "="))?.split("=")[1];
 const setCookie = (k: string, v: string) => { document.cookie = `${k}=${v}; path=/; max-age=31536000; samesite=lax`; };
 
-export function Header({ lang, theme, user, unread: unreadProp = null, labels }: { lang: "pt" | "en"; theme: "dark" | "light"; user: { initials: string } | null; unread?: number | null; labels: Record<string, string> }) {
+export function Header({ lang, theme, user, unread: unreadProp = null, labels }: { lang: "pt" | "en"; theme: "dark" | "light"; user: { initials: string; admin?: boolean } | null; unread?: number | null; labels: Record<string, string> }) {
   // Contador do sino: valor do servidor + atualização imediata quando a central marca itens como lidos (evento "iv:unread").
   const [unread, setUnread] = useState(unreadProp);
   useEffect(() => { setUnread(unreadProp); }, [unreadProp]);
@@ -45,6 +45,7 @@ export function Header({ lang, theme, user, unread: unreadProp = null, labels }:
               <Link role="menuitem" href="/perfil" onClick={() => setMenu(false)}><Icon name="user" size={18} />{labels["hdr.profile"]}</Link>
               <Link role="menuitem" href="/favoritos" onClick={() => setMenu(false)}><Icon name="star" size={18} />{labels["nav.favorites"]}</Link>
               <Link role="menuitem" href="/assinatura" onClick={() => setMenu(false)}><Icon name="card" size={18} />{labels["nav.subscription"]}</Link>
+              {user.admin && <Link role="menuitem" href="/admin" onClick={() => setMenu(false)} data-testid="um-admin"><Icon name="shield" size={18} />{labels["nav.admin"]}</Link>}
               <Link role="menuitem" href="/suporte" onClick={() => setMenu(false)}><Icon name="help" size={18} />{labels["sp.link"]}</Link>
               <hr />
               <button type="button" role="menuitem" aria-label={labels["hdr.lang"]} onClick={toggleLang}><Icon name="globe" size={18} />{labels["hdr.langLabel"]}<span className="val">{lang === "pt" ? "Português" : "English"}</span></button>

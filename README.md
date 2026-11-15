@@ -78,6 +78,13 @@ Sessão em cookie HttpOnly (Supabase SSR); rotas privadas protegidas no middlewa
 - **Cota**: `ai_try_consume()` no banco antes de chamar o modelo (FREE = 3 mensagens por conta). Se o modelo falhar, a mensagem é devolvida por `ai_release(secret)`. Uso justo para PRO/MAX: 8/min e 300/dia por instância.
 - **Banco** (migração 12): `ai_conversations`, `ai_messages` (RLS: só as próprias; só `saved` é editável), `ai_requests` (uso/custo para o painel admin, gravado só pelo servidor).
 
+## Calls VIP e painel administrativo (ecossistema — Etapa 3)
+- **Assinantes PRO/MAX**: `/calls` (abas Ativas, Histórico e Resultados; filtros por ativo, mercado e período) e `/calls/[id]` (níveis com R/R, histórico da call, resultado bruto/líquido, responsável técnico e avisos de risco). FREE vê só o convite de assinatura — o banco não devolve nenhuma call sem plano pago.
+- **Administração** (`/admin`, só contas em `app_admins`; para os demais a rota responde 404): visão geral (usuários por plano, MRR, cancelamentos, pagamentos, uso/custo da IA, calls), auditoria recente, `/admin/calls` (criar com pré-visualização no formato de publicação, editar com motivo, publicar e notificar, registrar alvos em ordem, encerrar por stop/alvos/manual com custos, cancelar, anotar) e `/admin/usuarios` (plano, assinatura, uso da IA, conceder/remover admin).
+- **Banco** (migração 13): `vip_calls`, `vip_call_events`; escrita só pelas funções `admin_*` (security definer) que validam o administrador, os níveis (LONG: stop < entrada < TP1 < … < TP4; SHORT o inverso) e registram histórico e `admin_audit_logs`. Resultado = direção × (saída − entrada) ÷ entrada × alavancagem; líquido só quando os custos são informados.
+- **Primeiro administrador** (uma vez, no SQL Editor do Supabase): `insert into public.app_admins (user_id) select id from auth.users where email = 'SEU_EMAIL';` — depois disso novos administradores são concedidos pelo próprio painel.
+- **Pendente**: bloquear/suspender contas exige a API Admin do Supabase Auth (chave de serviço) num backend isolado; não implementado para não expor a chave.
+
 ## Pendências / dependências externas
 - **Validar com serviços reais:** projeto Supabase + SMTP (login, cadastro, e-mails de confirmação/recuperação), plano de produção da NewsAPI (o plano gratuito não permite uso em produção), símbolos no TradingView real, respostas reais da CoinGecko.
 - **Configurar:** e-mail oficial de suporte (`SUPPORT_EMAIL`).

@@ -29,7 +29,7 @@ beforeAll(async () => {
 describe("migrações em Postgres real", () => {
   it("todas aplicam em ordem e as tabelas têm RLS ligada", async () => {
     const r = await db.query<{ relname: string; relrowsecurity: boolean }>(`select relname, relrowsecurity from pg_class where relnamespace='public'::regnamespace and relkind='r' order by 1`);
-    expect(r.rows.map((x) => x.relname)).toEqual(["admin_audit_logs", "ai_conversations", "ai_messages", "ai_requests", "ai_usage", "app_admins", "favorites", "notifications", "payment_webhook_events", "profiles", "subscription_events", "subscription_payments", "subscription_plans", "subscriptions", "user_preferences"]);
+    expect(r.rows.map((x) => x.relname)).toEqual(["admin_audit_logs", "ai_conversations", "ai_messages", "ai_requests", "ai_usage", "app_admins", "favorites", "notifications", "payment_webhook_events", "profiles", "subscription_events", "subscription_payments", "subscription_plans", "subscriptions", "user_preferences", "vip_call_events", "vip_calls"]);
     expect(r.rows.every((x) => x.relrowsecurity)).toBe(true);
   });
   it("cadastro cria perfil (nome; telefone só em E.164) e notificação de boas-vindas", async () => {
@@ -243,5 +243,69 @@ describe("Etapa 2 — conversas da TRADEON AI (Postgres real)", () => {
       expect(await fails(db.query("select * from public.ai_requests"))).toBe(true);
     });
     expect((await db.query("select user_id, provider, tools, status from public.ai_requests")).rows).toEqual([{ user_id: C, provider: "openai", tools: ["get_asset_indicators"], status: "ok" }]);
+  });
+});
+
+describe("Etapa 3 — Calls VIP e funções administrativas (Postgres real)", () => {
+  const ADM = "88888888-8888-4888-8888-888888888888", PRO = "99999999-9999-4999-8999-999999999999", FREE = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", S = "s".repeat(40);
+  const call = { market: "crypto_futures", symbol: "btc/usdt", direction: "long", entry: "95000", stop: "93000", tp1: "96000", tp2: "97000", tp3: "98000", tp4: "100000", leverage: "10", notes: "teste", analyst: "Fulano (CNPI 0000)" };
+  const id = async (q: Promise<{ rows: { id: string }[] }>) => (await q).rows[0].id;
+  beforeAll(async () => {
+    await db.query("insert into auth.users (id, email) values ($1, 'adm@t.com'), ($2, 'pro@t.com'), ($3, 'free@t.com')", [ADM, PRO, FREE]);
+    await db.query("insert into public.app_admins (user_id) values ($1)", [ADM]);
+    await db.query(`select public.billing_sync_subscription($1, $2, 'pro', 'active', 'stripe', 'cus_p', 'sub_p', now(), now(), now() + interval '30 days', false, null, 'teste')`, [S, PRO]);
+  });
+  it("só administrador cria/publica; níveis inválidos são rejeitados", async () => {
+    await as(PRO, async () => { expect(await fails(db.query("select public.admin_create_call($1::jsonb)", [JSON.stringify(call)]))).toBe(true); });
+    await as(PRO, async () => { expect(await fails(db.query("insert into public.vip_calls (market, symbol, direction, entry, stop, tp1) values ('crypto_spot','BTC','long',1,0.5,2)"))).toBe(true); });
+    await as(ADM, async () => {
+      expect(await fails(db.query("select public.admin_create_call($1::jsonb) id", [JSON.stringify({ ...call, stop: "96500" })]))).toBe(true);           // stop acima da entrada em LONG
+      expect(await fails(db.query("select public.admin_create_call($1::jsonb) id", [JSON.stringify({ ...call, tp2: "95500" })]))).toBe(true);           // TP2 abaixo do TP1
+      expect(await fails(db.query("select public.admin_create_call($1::jsonb) id", [JSON.stringify({ ...call, market: "crypto_spot" })]))).toBe(true); // alavancagem fora de futuros/forex
+      expect(await fails(db.query("select public.admin_create_call($1::jsonb) id", [JSON.stringify({ ...call, direction: "short" })]))).toBe(true);     // SHORT com níveis de LONG
+    });
+  });
+  it("rascunho invisível aos assinantes; publicação notifica PRO/MAX e registra auditoria", async () => {
+    const cid = await as(ADM, () => id(db.query<{ id: string }>("select public.admin_create_call($1::jsonb) id", [JSON.stringify(call)])));
+    await as(PRO, async () => { expect((await db.query("select * from public.vip_calls")).rows).toEqual([]); });
+    await as(ADM, async () => { await db.query("select public.admin_publish_call($1)", [cid]); });
+    await as(PRO, async () => {
+      const r = await db.query<{ symbol: string; status: string; leverage: string }>("select symbol, status, leverage::text from public.vip_calls");
+      expect(r.rows).toEqual([{ symbol: "BTC/USDT", status: "active", leverage: "10" }]);
+      expect((await db.query<{ type: string }>("select type from public.vip_call_events")).rows.map((x) => x.type)).toEqual(["published"]);
+      const n = await db.query<{ title: string; target: string }>("select title, target from public.notifications where kind = 'vip_call'"); expect(n.rows).toEqual([{ title: "Nova call: LONG BTC/USDT", target: `/calls/${cid}` }]);
+    });
+    await as(FREE, async () => { expect((await db.query("select * from public.vip_calls")).rows).toEqual([]); expect((await db.query("select * from public.notifications where kind = 'vip_call'")).rows).toEqual([]); });
+    const a = await db.query<{ action: string }>("select action from public.admin_audit_logs where target_id = $1 order by created_at", [cid]);
+    expect(a.rows.map((x) => x.action)).toEqual(["vip_call.create", "vip_call.publish"]);
+    await as(ADM, async () => {
+      expect(await fails(db.query("select public.admin_hit_target($1, 2::smallint)", [cid]))).toBe(true);                                  // fora de ordem
+      await db.query("select public.admin_hit_target($1, 1::smallint)", [cid]); await db.query("select public.admin_hit_target($1, 2::smallint, 97100)", [cid]);
+      await db.query("select public.admin_close_call($1, 'targets', null, 0.1)", [cid]);
+    });
+    const c = await db.query<{ status: string; exit_price: string; gross_result_pct: string; net_result_pct: string; targets_hit: number }>("select status, exit_price::text, gross_result_pct::text, net_result_pct::text, targets_hit from public.vip_calls where id = $1", [cid]);
+    // saída padrão = TP2 (97000): (97000-95000)/95000 = 2,1053% × 10x = 21,0526%; líquido (2,1053 − 0,1) × 10 = 20,0526%
+    expect(c.rows[0]).toEqual({ status: "closed", exit_price: "97000", gross_result_pct: "21.0526", net_result_pct: "20.0526", targets_hit: 2 });
+    await as(ADM, async () => { expect(await fails(db.query("select public.admin_update_call($1, $2::jsonb)", [cid, JSON.stringify(call)]))).toBe(true); });   // encerrada não é editável
+  });
+  it("SHORT com stop: resultado negativo; cancelamento; manual exige preço de saída", async () => {
+    const s = { ...call, direction: "short", entry: "3000", stop: "3100", tp1: "2900", tp2: "", tp3: "", tp4: "", leverage: "" , market: "crypto_spot", symbol: "ETH/USDT" };
+    const cid = await as(ADM, () => id(db.query<{ id: string }>("select public.admin_create_call($1::jsonb, true) id", [JSON.stringify(s)])));
+    await as(ADM, async () => { expect(await fails(db.query("select public.admin_close_call($1, 'manual')", [cid]))).toBe(true); await db.query("select public.admin_close_call($1, 'stop')", [cid]); });
+    const r = await db.query<{ g: string; n: string | null; stop_hit: boolean }>("select gross_result_pct::text g, net_result_pct::text n, stop_hit from public.vip_calls where id = $1", [cid]);
+    expect(r.rows[0]).toEqual({ g: "-3.3333", n: null, stop_hit: true });
+    const c2 = await as(ADM, () => id(db.query<{ id: string }>("select public.admin_create_call($1::jsonb, true) id", [JSON.stringify(s)])));
+    await as(ADM, async () => { await db.query("select public.admin_cancel_call($1, 'condição invalidada')", [c2]); expect(await fails(db.query("select public.admin_publish_call($1)", [c2]))).toBe(true); });
+  });
+  it("painel admin: visão geral, usuários e gestão de administradores só para admin", async () => {
+    await as(PRO, async () => { for (const q of ["select public.admin_overview()", "select * from public.admin_list_users()", `select public.admin_set_admin('${PRO}', true)`, "select * from public.admin_audit()"]) expect(await fails(db.query(q)), q).toBe(true); });
+    await as(ADM, async () => {
+      const o = (await db.query<{ o: { mrr_cents: number; users: number; calls: Record<string, number> } }>("select public.admin_overview() o")).rows[0].o;
+      expect(o.mrr_cents).toBeGreaterThanOrEqual(3000); expect(o.users).toBeGreaterThanOrEqual(3); expect(o.calls.closed).toBe(2);
+      const u = await db.query<{ email: string; plan: string; is_admin: boolean }>("select email, plan, is_admin from public.admin_list_users('pro@')"); expect(u.rows).toEqual([{ email: "pro@t.com", plan: "pro", is_admin: false }]);
+      await db.query("select public.admin_set_admin($1, true)", [PRO]); expect(await fails(db.query("select public.admin_set_admin($1, false)", [ADM]))).toBe(true);
+    });
+    await as(PRO, async () => { expect((await db.query<{ a: boolean }>("select public.am_admin() a")).rows[0].a).toBe(true); });
+    await as(FREE, async () => { expect((await db.query<{ a: boolean; p: string }>("select public.am_admin() a, public.my_plan() p")).rows[0]).toEqual({ a: false, p: "free" }); });
   });
 });

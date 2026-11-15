@@ -20,8 +20,9 @@ const lookup = (email) => USERS[email] || created.get(email) || (/^ok\d+@teste\.
 let lifetime = 3600, revoked = new Set(), refreshTokens = new Map(), invalidateAll = false;
 const stats = { passwordCalls: {}, refreshCalls: 0, logouts: 0, userCalls: 0, signupCalls: {}, signups: [], resends: [], verifies: 0, recovers: [], passwordUpdates: [], logoutScopes: [], profileWrites: [], prefWrites: [], favoriteWrites: [], favoriteDeletes: [] };
 const userObj = (email, u) => ({ id: u.id, aud: "authenticated", role: "authenticated", email, email_confirmed_at: u.unconfirmed || u.pending ? null : new Date().toISOString(), user_metadata: { name: u.name, ...(u.phone ? { phone: u.phone } : {}) }, app_metadata: {}, identities: [{ id: u.id, provider: "email" }], created_at: new Date().toISOString() });
+const idEmail = new Map();
 const session = (email) => {
-  const u = lookup(email), now = Math.floor(Date.now() / 1000), exp = now + lifetime;
+  const u = lookup(email); idEmail.set(u.id, email); const now = Math.floor(Date.now() / 1000), exp = now + lifetime;
   const access = `${b64({ alg: "HS256", typ: "JWT" })}.${b64({ sub: u.id, email, aud: "authenticated", role: "authenticated", iat: now, exp, jti: crypto.randomUUID() })}.sig`;
   const refresh = crypto.randomUUID(); refreshTokens.set(refresh, email); (issued.get(email) || issued.set(email, new Set()).get(email)).add(access);
   return { access_token: access, token_type: "bearer", expires_in: lifetime, expires_at: exp, refresh_token: refresh, user: userObj(email, u) };
@@ -33,7 +34,8 @@ const PLAN_LIMIT = { free: 3, pro: null, max: null };
 const curPlan = (uid) => { const s = subs.get(uid); return s && ["pro", "max"].includes(s.plan_id) && ["active", "trialing", "past_due"].includes(s.status) && (!s.current_period_end || new Date(s.current_period_end) > new Date()) ? s.plan_id : "free"; };
 const subRow = (uid) => subs.get(uid) || { plan_id: "free", status: "none", provider: null, provider_customer_id: null, provider_subscription_id: null, started_at: null, current_period_start: null, current_period_end: null, cancel_at_period_end: false, canceled_at: null, updated_at: new Date().toISOString() };
 const aiTables = { ai_conversations: [], ai_messages: [] }; let aiSeq = 0; const aiRpc = [];
-const resetBilling = () => { aiTables.ai_conversations.length = 0; aiTables.ai_messages.length = 0; aiRpc.length = 0; subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
+const admins = new Set(); const vipCalls = []; const vipEvents = []; const audit = []; let evSeq = 0;
+const resetBilling = () => { admins.clear(); vipCalls.length = 0; vipEvents.length = 0; audit.length = 0; aiTables.ai_conversations.length = 0; aiTables.ai_messages.length = 0; aiRpc.length = 0; subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
 const readBody = (req) => new Promise((r) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => { try { r(JSON.parse(d || "{}")); } catch { r({}); } }); });
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), send = (c, b, h = {}) => { res.writeHead(c, { "content-type": "application/json", ...h }); res.end(b === undefined ? "" : JSON.stringify(b)); };
@@ -48,6 +50,8 @@ http.createServer(async (req, res) => {
   if (u.pathname === "/__lifetime") { lifetime = +(u.searchParams.get("s") || 3600); return send(200, { lifetime }); }
   if (u.pathname === "/__invalidate") { invalidateAll = true; refreshTokens.clear(); return send(200, { ok: true }); }
   if (u.pathname === "/__confirm") { const c = created.get(u.searchParams.get("email")); if (c) c.pending = false; return send(200, { ok: !!c }); }
+  if (u.pathname === "/__set_admin") { const us = lookup((u.searchParams.get("email") || "").toLowerCase()); if (!us) return send(404, {}); admins.add(us.id); return send(200, { ok: true }); }
+  if (u.pathname === "/__calls") return send(200, { calls: vipCalls, events: vipEvents, audit, notifs: notifs.filter((n) => n.kind === "vip_call") });
   if (u.pathname === "/__ai") return send(200, { ...aiTables, rpc: aiRpc });
   if (u.pathname === "/__ai_usage") { const us = lookup((u.searchParams.get("email") || "").toLowerCase()); if (!us) return send(404, {}); aiUsage.set(us.id, +(u.searchParams.get("used") || 0)); return send(200, { ok: true }); }
   if (u.pathname === "/__billing") return send(200, { subs: Object.fromEntries(subs), payments, subEvents, aiUsage: Object.fromEntries(aiUsage), webhookEvents: [...webhookEvents] });
@@ -242,6 +246,63 @@ http.createServer(async (req, res) => {
     aiRpc.push({ fn: u.pathname.split("/").pop(), user: sub, ...Object.fromEntries(Object.entries(b).filter(([k]) => k !== "secret")) });
     if (u.pathname.endsWith("ai_release") && sub) aiUsage.set(sub, Math.max((aiUsage.get(sub) || 0) - 1, 0));
     return send(200, null);
+  }
+  // ----- Etapa 3: Calls VIP (RLS e funções admin_* simuladas; a lógica SQL real é testada no PGlite) -----
+  if (u.pathname === "/rest/v1/rpc/am_admin") { const sub = subOf(req); return send(200, !!sub && admins.has(sub)); }
+  if (u.pathname === "/rest/v1/rpc/my_plan") { const sub = subOf(req); return send(200, sub ? curPlan(sub) : "free"); }
+  if (u.pathname === "/rest/v1/vip_calls" || u.pathname === "/rest/v1/vip_call_events") {
+    const sub = subOf(req); if (!sub) return send(401, { code: "42501", message: "permission denied" }); if (req.method !== "GET") return send(403, { code: "42501", message: "permission denied" });
+    const adm = admins.has(sub), paid = ["pro", "max"].includes(curPlan(sub));
+    const visible = (c) => adm || (paid && c.status !== "draft");
+    let rows = u.pathname.endsWith("vip_calls") ? vipCalls.filter(visible) : vipEvents.filter((e) => { const c = vipCalls.find((x) => x.id === e.call_id); return c && visible(c) && (adm || e.type !== "created"); });
+    for (const [k, v] of u.searchParams.entries()) {
+      if (["select", "order", "limit", "offset"].includes(k)) continue;
+      if (v.startsWith("eq.")) rows = rows.filter((r) => String(r[k]) === v.slice(3));
+      else if (v.startsWith("in.(")) { const set = v.slice(4, -1).split(",").map((x) => x.replace(/"/g, "")); rows = rows.filter((r) => set.includes(String(r[k]))); }
+      else if (v.startsWith("ilike.")) { const needle = v.slice(6).replace(/[*%]/g, "").toLowerCase(); rows = rows.filter((r) => String(r[k]).toLowerCase().includes(needle)); }
+      else if (v.startsWith("gte.")) rows = rows.filter((r) => r[k] && r[k] >= v.slice(4));
+    }
+    rows = [...rows].sort((a, b) => (u.pathname.endsWith("vip_calls") ? ((b.published_at ?? "9") > (a.published_at ?? "9") ? 1 : -1) || (b.seq - a.seq) : a.seq - b.seq));
+    const lim = +(u.searchParams.get("limit") || 0); if (lim) rows = rows.slice(0, lim);
+    const out = rows.map(({ seq, call_id, created_by, ...r }) => (u.pathname.endsWith("vip_call_events") ? { ...r } : r));
+    if (wantsObject) return out.length === 1 ? send(200, out[0]) : send(406, { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned", details: `The result contains ${out.length} rows` });
+    return send(200, out);
+  }
+  if (u.pathname.startsWith("/rest/v1/rpc/admin_")) {
+    const sub = subOf(req), b = await readBody(req), fn = u.pathname.slice("/rest/v1/rpc/".length);
+    if (!sub || !admins.has(sub)) return send(400, { code: "42501", message: "admin_required" });
+    const err = (m, code = "22023") => send(400, { code, message: m }); const now = () => new Date(Date.now() + ++evSeq).toISOString();
+    const ev = (call_id, type, extra = {}) => vipEvents.push({ id: ++evSeq, call_id, type, tp_index: null, price: null, note: null, created_at: now(), seq: evSeq, ...extra });
+    const log = (action, id, details = null) => audit.push({ id: crypto.randomUUID(), admin_id: sub, action, target_type: id ? "vip_call" : "user", target_id: id, details, created_at: now() });
+    const find = (id) => vipCalls.find((c) => c.id === id);
+    const levelsOk = (c) => { const up = c.direction === "long"; const gt = (a, x) => (up ? a > x : a < x); const t = [c.tp1, c.tp2, c.tp3, c.tp4];
+      if (!gt(c.entry, c.stop) || !gt(c.tp1, c.entry)) return false; for (let i = 1; i < 4; i++) { if (t[i] == null) continue; if (t[i - 1] == null || !gt(t[i], t[i - 1])) return false; } return c.leverage == null || ["crypto_futures", "forex"].includes(c.market); };
+    const fromP = (p) => { const n = (v) => (v === "" || v == null ? null : Number(v)); return { market: p.market, symbol: String(p.symbol).toUpperCase(), direction: p.direction, entry: n(p.entry), stop: n(p.stop), tp1: n(p.tp1), tp2: n(p.tp2), tp3: n(p.tp3), tp4: n(p.tp4), leverage: n(p.leverage), notes: p.notes || null, analyst: p.analyst || null }; };
+    const publish = (c) => { if (c.status !== "draft") return "not_draft"; c.status = "active"; c.published_at = now(); ev(c.id, "published", { price: c.entry });
+      for (const [uid] of subs) if (["pro", "max"].includes(curPlan(uid))) addNotif(uid, { kind: "vip_call", category: "market", title: `Nova call: ${c.direction.toUpperCase()} ${c.symbol}`, message: `Entrada ${c.entry} · Stop ${c.stop} · TP1 ${c.tp1}`, target: `/calls/${c.id}` });
+      log("vip_call.publish", c.id); return null; };
+    if (fn === "admin_create_call") { const c = { id: crypto.randomUUID(), ...fromP(b.p), status: "draft", targets_hit: 0, stop_hit: false, exit_price: null, close_reason: null, fees_pct: null, gross_result_pct: null, net_result_pct: null, created_at: now(), published_at: null, closed_at: null, updated_at: now(), seq: ++evSeq };
+      if (!levelsOk(c)) return err("violates check constraint vip_calls_levels", "23514"); vipCalls.push(c); ev(c.id, "created"); log("vip_call.create", c.id, b.p); if (b.p_publish) publish(c); return send(200, c.id); }
+    const c = find(b.p_id);
+    if (fn === "admin_update_call") { if (!c) return err("not_found", "P0002"); if (!["draft", "active"].includes(c.status)) return err("call_finished"); const nc = { ...c, ...fromP(b.p) }; if (!levelsOk(nc)) return err("check constraint", "23514"); Object.assign(c, nc, { updated_at: now() }); if (c.status === "active") ev(c.id, "edited", { note: b.p.edit_note || null }); log("vip_call.update", c.id, b.p); return send(200, null); }
+    if (fn === "admin_publish_call") { if (!c) return err("not_found", "P0002"); const e = publish(c); return e ? err(e) : send(200, null); }
+    if (fn === "admin_hit_target") { if (!c) return err("not_found", "P0002"); if (c.status !== "active") return err("not_active"); const lvl = [c.tp1, c.tp2, c.tp3, c.tp4][b.p_tp - 1]; if (lvl == null) return err("invalid_target"); if (b.p_tp !== c.targets_hit + 1) return err("target_out_of_order");
+      c.targets_hit = b.p_tp; ev(c.id, "tp_hit", { tp_index: b.p_tp, price: b.p_price ?? lvl }); log("vip_call.tp_hit", c.id); return send(200, null); }
+    if (fn === "admin_close_call") { if (!c) return err("not_found", "P0002"); if (c.status !== "active") return err("not_active"); if (b.p_reason === "targets" && !c.targets_hit) return err("no_targets_hit");
+      const ex = b.p_exit ?? (b.p_reason === "stop" ? c.stop : b.p_reason === "targets" ? [c.tp1, c.tp2, c.tp3, c.tp4][c.targets_hit - 1] : null); if (!ex) return err("exit_required");
+      const d = c.direction === "long" ? 1 : -1, lev = c.leverage ?? 1, raw = (d * (ex - c.entry)) / c.entry * 100; const r4 = (x) => Math.round(x * 10000) / 10000;
+      Object.assign(c, { status: "closed", exit_price: ex, close_reason: b.p_reason, fees_pct: b.p_fees ?? null, stop_hit: b.p_reason === "stop", gross_result_pct: r4(raw * lev), net_result_pct: b.p_fees == null ? null : r4((raw - b.p_fees) * lev), closed_at: now(), updated_at: now() });
+      if (b.p_reason === "stop") ev(c.id, "stop_hit", { price: ex }); ev(c.id, "closed", { price: ex, note: b.p_note || null }); log("vip_call.close", c.id); return send(200, null); }
+    if (fn === "admin_cancel_call") { if (!c) return err("not_found", "P0002"); if (!["draft", "active"].includes(c.status)) return err("call_finished"); c.status = "canceled"; ev(c.id, "canceled", { note: b.p_note || null }); log("vip_call.cancel", c.id); return send(200, null); }
+    if (fn === "admin_add_call_note") { if (!c) return err("not_found", "P0002"); ev(c.id, "note", { note: b.p_note }); log("vip_call.note", c.id); return send(200, null); }
+    if (fn === "admin_overview") { const plans = {}; for (const [uid] of subs) plans[curPlan(uid)] = (plans[curPlan(uid)] || 0) + 1; const cs = {}; for (const x of vipCalls) cs[x.status] = (cs[x.status] || 0) + 1;
+      return send(200, { users: subs.size, plans, subscriptions: {}, mrr_cents: [...subs.keys()].reduce((a, uid) => a + ({ pro: 3000, max: 5000 }[curPlan(uid)] || 0), 0), canceled_30d: 0, payments_30d: null, ai_30d: { requests: 0, errors: 0, blocked: 0, input_tokens: 0, output_tokens: 0, avg_latency_ms: null }, calls: cs, generated_at: now() }); }
+    if (fn === "admin_list_users") { const all = [...new Set([...subs.keys(), ...admins])]; const emailOf = (id) => idEmail.get(id) ?? [...created.entries()].find(([, v]) => v.id === id)?.[0] ?? Object.entries(USERS).find(([, v]) => v.id === id)?.[0] ?? `${id.slice(0, 6)}@teste.com`;
+      return send(200, all.map((id) => ({ id, email: emailOf(id), name: "Maria Teste", created_at: now(), plan: curPlan(id), sub_status: subs.get(id)?.status ?? null, period_end: subs.get(id)?.current_period_end ?? null, ai_used: aiUsage.get(id) || 0, is_admin: admins.has(id) }))
+        .filter((x) => !b.p_search || x.email.includes(b.p_search))); }
+    if (fn === "admin_set_admin") { if (b.p_user === sub && !b.p_admin) return err("cannot_remove_self"); if (b.p_admin) admins.add(b.p_user); else admins.delete(b.p_user); log(b.p_admin ? "admin.grant" : "admin.revoke", null); return send(200, null); }
+    if (fn === "admin_audit") return send(200, [...audit].reverse().slice(0, b.p_limit || 50));
+    return send(404, { code: "PGRST202" });
   }
   if (u.pathname.startsWith("/rest/v1/rpc/billing_")) {
     const b = await readBody(req), fn = u.pathname.slice("/rest/v1/rpc/".length);
