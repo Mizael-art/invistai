@@ -54,7 +54,8 @@ try:
         check("motor: classe sem fonte (ações) → 422, sem números inventados", code(B + "/api/engine/snapshot?symbol=PETR4&class=stock_br") == 422)
         # ---------- servidor sem chave de IA ----------
         ctxo = b.new_context(); po = ctxo.new_page(); uO = fresh(); login(po, uO, base=B2); open_ai(po, base=B2)
-        check("sem chave da IA: aviso claro e campo desativado", po.get_by_test_id("ai-off").is_visible() and po.get_by_test_id("ai-input").is_disabled())
+        po.fill("[data-testid=ai-input]", "teste sem chave"); po.click("[data-testid=ai-send]"); po.wait_for_selector("[data-testid=ai-err]")
+        check("sem chave da IA: aviso claro; dá para digitar e ao enviar explica que a IA não está conectada", po.get_by_test_id("ai-off").is_visible() and po.get_by_test_id("ai-input").is_enabled() and "não está conectada" in po.get_by_test_id("ai-err").inner_text() and po.locator("[data-testid=ai-user]").count() == 0)
         check("sem chave da IA: API → 503 e cota intacta", api(po, "POST", "/api/ai/chat", {"message": "oi"})[0] == 503 and not usage())
         ctxo.close()
         # ---------- FREE: 3 mensagens ----------
@@ -128,6 +129,11 @@ try:
         ask(pg, "Analise o SOL"); check("PRO envia além de 3 mensagens", last_answer(pg).locator("[data-testid=ai-asset]").count() == 1 and "SOL" in last_answer(pg).inner_text())
         ask(pg, "Mostre o histórico do BTC"); ch = last_answer(pg).locator("[data-testid=ai-chart]")
         check("histórico de preços vira gráfico (dados do motor)", ch.count() == 1 and ch.locator("svg polyline").count() == 1)
+        # botão "Analisar com TRADEON AI" na página da moeda
+        pg.goto(B + "/mercado/bitcoin"); pg.wait_for_selector("[data-testid=ask-ai]", timeout=20000); n0 = len(ai_state()["ai_conversations"])
+        pg.click("[data-testid=ask-ai]"); pg.wait_for_url("**/ia**"); pg.wait_for_selector("[data-testid=ai-answer]", timeout=40000)
+        check("página da moeda → 'Analisar BTC com TRADEON AI' abre a IA e já envia a análise", "Analise o BTC" in pg.locator("[data-testid=ai-user]").first.inner_text() and pg.locator("[data-testid=ai-asset]").count() == 1 and len(ai_state()["ai_conversations"]) == n0 + 1)
+        pg.wait_for_timeout(500); check("pergunta automática enviada uma única vez (sem repetir ao recarregar)", "ask=" not in pg.url)
         # Anthropic
         ctx3 = b.new_context(); p3 = ctx3.new_page(); login(p3, uA, base=B3); open_ai(p3, base=B3); ask(p3, "Analise o ETH")
         c = llm()["calls"][-1]

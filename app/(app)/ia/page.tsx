@@ -16,8 +16,8 @@ export const metadata: Metadata = { title: "TRADEON AI" };
 export const dynamic = "force-dynamic";
 
 export default async function IA({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const ent = await getEntitlements(); if (!ent) redirect("/login?next=%2Fia");
-  const sp = await searchParams; const { lang, tr } = await getPrefs(); const l = dict[lang] as unknown as Record<string, string>;
+  const sp = await searchParams; const ask = typeof sp.ask === "string" ? sp.ask.trim().slice(0, 200) : null;
+  const ent = await getEntitlements(); if (!ent) redirect(`/login?next=${encodeURIComponent(ask ? `/ia?ask=${encodeURIComponent(ask)}` : "/ia")}`); const { lang, tr } = await getPrefs(); const l = dict[lang] as unknown as Record<string, string>;
   if (sp.view === "saved") {
     const saved = await listSaved();
     return (<div className="ai-saved">
@@ -29,5 +29,5 @@ export default async function IA({ searchParams }: { searchParams: Promise<Recor
   }
   const c = typeof sp.c === "string" ? sp.c : null;
   const [convs, conv, quota] = await Promise.all([listConversations(), c ? getConversation(c) : Promise.resolve(null), aiQuota()]);
-  return <AiChat key={conv?.conv.id ?? "new"} lang={lang} l={l} configured={!!llmEnv()} billingConfigured={!!stripeEnv()} quota={quota} convs={convs} conv={conv ? { id: conv.conv.id, messages: conv.messages } : null} />;
+  return <AiChat key={conv?.conv.id ?? "new"} lang={lang} l={l} configured={!!llmEnv()} billingConfigured={!!stripeEnv()} quota={quota} convs={convs} conv={conv ? { id: conv.conv.id, messages: conv.messages } : null} ask={conv ? null : ask} />;
 }

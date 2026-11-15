@@ -15,7 +15,7 @@ const SUGGEST = ["ai.s1", "ai.s2", "ai.s3", "ai.s4"];
 const SUGGEST_IC = ["M4 19h16M7 15.5v-4M12 15.5V6.5M17 15.5v-7", "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4", "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18", "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 8h.01"];
 
 /** Chat da TRADEON AI. O servidor decide cota, plano e dados; aqui só se envia a pergunta e se exibe a resposta em blocos. */
-export function AiChat(p: { lang: Lang; l: L; configured: boolean; billingConfigured: boolean; quota: Quota | null; convs: Conv[]; conv: { id: string; messages: Msg[] } | null }) {
+export function AiChat(p: { lang: Lang; l: L; configured: boolean; billingConfigured: boolean; quota: Quota | null; convs: Conv[]; conv: { id: string; messages: Msg[] } | null; ask?: string | null }) {
   const { l, lang } = p;
   const [convs, setConvs] = useState(p.convs); const [convId, setConvId] = useState<string | null>(p.conv?.id ?? null);
   const [msgs, setMsgs] = useState<Msg[]>(p.conv?.messages ?? []); const [quota, setQuota] = useState(p.quota);
@@ -24,6 +24,14 @@ export function AiChat(p: { lang: Lang; l: L; configured: boolean; billingConfig
   const end = useRef<HTMLDivElement>(null); const ta = useRef<HTMLTextAreaElement>(null);
   const exhausted = quota?.limit !== null && quota?.limit !== undefined && (quota.remaining ?? 0) <= 0;
   useEffect(() => { end.current?.scrollIntoView({ block: "end", behavior: "smooth" }); }, [msgs.length, busy]);
+  // Vindo do botão "Analisar com TRADEON AI": envia a pergunta uma vez (ou só preenche, se a IA não estiver conectada).
+  const asked = useRef(false);
+  useEffect(() => {
+    if (asked.current || !p.ask || p.conv) return; asked.current = true;
+    history.replaceState(null, "", "/ia");
+    if (p.configured) send(p.ask); else { setText(p.ask); setErr(l["ai.notConfigured"]); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** Mantém a conversa atual no topo da lista (criada agora ou já existente) e na URL. */
   function track(id: string, firstMsg: string) {
@@ -32,7 +40,8 @@ export function AiChat(p: { lang: Lang; l: L; configured: boolean; billingConfig
     if (id !== convId) { setConvId(id); history.replaceState(null, "", `/ia?c=${id}`); }
   }
   async function send(q: string) {
-    const msg = q.trim(); if (!msg || busy || !p.configured) return;
+    const msg = q.trim(); if (!msg || busy) return;
+    if (!p.configured) { setErr(l["ai.notConfigured"]); return; }
     if (exhausted) { setLock(true); return; }
     setErr(null); setBusy(true); setText("");
     const tmp: Msg = { id: `tmp-${Date.now()}`, role: "user", content: msg, blocks: [], saved: false, created_at: new Date().toISOString(), pending: true };
@@ -80,7 +89,7 @@ export function AiChat(p: { lang: Lang; l: L; configured: boolean; billingConfig
       </div>
       {!p.configured && <p className="note" role="status" data-testid="ai-off">{l["ai.notConfigured"]}</p>}
       <div className="ai-log" aria-live="polite">
-        {msgs.length === 0 && <div className="ai-sug" data-testid="ai-suggestions">{SUGGEST.map((k, i) => <button key={k} type="button" className="ai-sug-i" disabled={!p.configured || busy} onClick={() => send(l[k])}>
+        {msgs.length === 0 && <div className="ai-sug" data-testid="ai-suggestions">{SUGGEST.map((k, i) => <button key={k} type="button" className="ai-sug-i" disabled={busy} onClick={() => send(l[k])}>
           <span className="ai-sug-ic" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={SUGGEST_IC[i]} /></svg></span>{l[k]}</button>)}</div>}
         {msgs.map((m) => m.role === "user"
           ? <div key={m.id} className="ai-msg u" data-testid="ai-user"><p>{m.content}</p></div>
@@ -100,9 +109,9 @@ export function AiChat(p: { lang: Lang; l: L; configured: boolean; billingConfig
           : <p className="src ai-quota" data-testid="ai-quota">{l["ai.unlimited"].replace("{plan}", quota.plan.toUpperCase())}</p>)}
         <form className="ai-form" onSubmit={(e) => { e.preventDefault(); send(text); }}>
           <label htmlFor="ai-in" className="sr">{l["ai.placeholder"]}</label>
-          <textarea id="ai-in" ref={ta} rows={1} maxLength={2000} value={text} placeholder={l["ai.placeholder"]} disabled={!p.configured}
+          <textarea id="ai-in" ref={ta} rows={1} maxLength={2000} value={text} placeholder={l["ai.placeholder"]}
             onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(text); } }} data-testid="ai-input" />
-          <button type="submit" className="btn ai-send" aria-label={l["ai.send"]} disabled={!p.configured || busy || !text.trim()} data-testid="ai-send">
+          <button type="submit" className="btn ai-send" aria-label={l["ai.send"]} disabled={busy || !text.trim()} data-testid="ai-send">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5z" /></svg></button>
         </form>
         <p className="src ai-disc">{l["ai.disclaimer"]}</p>

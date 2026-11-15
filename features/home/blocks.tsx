@@ -65,7 +65,7 @@ export async function Featured() {
   const d = dict[lang]; const fl = { add: d["fav.add"], remove: d["fav.remove"], login: d["fav.login"], notConfigured: d["fav.notConfigured"], fail: d["fav.fail"] };
   void L;
   return (<>{r.data.slice(0, 5).map((a) => (
-    <div key={a.id} className="lrow" data-asset={a.id}><Coin symbol={a.symbol} /><div style={{ flex: 1, minWidth: 0 }}><b>{a.symbol}</b><div className="src" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div></div>
+    <div key={a.id} className="lrow rowlink" data-asset={a.id}><Coin symbol={a.symbol} /><div style={{ flex: 1, minWidth: 0 }}><Link href={`/mercado/${a.id}`} className="stretch"><b>{a.symbol}</b></Link><div className="src" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{a.name}</div></div>
       <div style={{ textAlign: "right", display: "grid", gap: 3, justifyItems: "end" }}><span className="num">{money(a.price, lang)}</span><Chg v={a.changePct24h} lang={lang} /></div>
       <div style={{ width: 72 }} className="hm"><Spark values={a.sparkline} up={a.sparkline.length > 1 && a.sparkline[a.sparkline.length - 1] >= a.sparkline[0]} /></div>
       <FavoriteButton itemType="asset" itemId={a.id} initial={favs.has(a.id)} labels={fl} metadata={{ symbol: a.symbol, name: a.name, category: a.category }} /></div>))}

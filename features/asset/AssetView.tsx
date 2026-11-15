@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getPrefs } from "@/lib/i18n/server";
@@ -37,6 +38,7 @@ export async function AssetView({ id }: { id: string }) {
         <div className="row"><Coin symbol={sym} /><h1 style={{ fontSize: 26 }}>{a.symbol}</h1><span className="mt">{a.name}</span></div>
         <div className="row" style={{ margin: "8px 0" }}><span className="bd">{categoryOf(a.category).label[lang]}</span><span className="bd v">{tr("as.currency")}: {a.quote ?? a.currency}</span></div>
         <p className="num" style={{ fontSize: 34, margin: 0, letterSpacing: "-.03em" }}><span className={up}>{priceText(a, lang)}</span> <span style={{ fontSize: 15, verticalAlign: "middle" }}><Chg v={a.changePct24h} lang={lang} /></span></p>
+        <Link href={`/ia?ask=${encodeURIComponent(`${tr("ai.askPrefix" as Key)} ${a.symbol}`)}`} className="btn ai-cta" data-testid="ask-ai"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /></svg>{tr("ai.askBtn" as Key, { sym: a.symbol })}</Link>
         <p className="src">{tr("home.updated")}: {clock(a.updatedAt, lang)} ({relTime(a.updatedAt, lang)}) · {tr("home.source")}: {a.source}{isStale(a.updatedAt, Date.now(), a.staleAfterMs) && <span className="bd a stale">{tr("home.stale")}</span>}</p>
       </div>
       {a.category !== "forex" && coin && (coin.high24h != null || coin.low24h != null || coin.volume24h != null) && (

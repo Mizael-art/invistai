@@ -44,20 +44,20 @@ export async function MarketResults({ p }: { p: MarketParams }) {
   const rows = applyFilterSort(r.data.items, p.filter, p.sort, p.dir);
   const user = await getSessionUser(); const favs = user ? await listFavoriteIds(user.id, "asset") : new Set<string>();
   const fl = { add: d["fav.add"], remove: d["fav.remove"], login: d["fav.login"], notConfigured: d["fav.notConfigured"], fail: d["fav.fail"] };
-  const th = (key: MarketParams["sort"], label: Key) => {
+  const th = (key: MarketParams["sort"], label: Key, cls = "") => {
     const on = p.sort === key, next = on ? (p.dir === "desc" ? "asc" : "desc") : key === "name" ? "asc" : "desc";
-    return (<th aria-sort={on ? (p.dir === "asc" ? "ascending" : "descending") : "none"}><Link href={hrefFor({ ...p, sort: key, dir: next, page: 1 })} style={{ color: "inherit", textDecoration: "none" }}>{tr(label)} {on ? (p.dir === "asc" ? "↑" : "↓") : "↕"}</Link></th>);
+    return (<th className={cls || undefined} aria-sort={on ? (p.dir === "asc" ? "ascending" : "descending") : "none"}><Link href={hrefFor({ ...p, sort: key, dir: next, page: 1 })} style={{ color: "inherit", textDecoration: "none" }}>{tr(label)} {on ? (p.dir === "asc" ? "↑" : "↓") : "↕"}</Link></th>);
   };
   const offset = (p.page - 1) * 25;
   return (<>
     {rows.length === 0 ? <div className="note" role="status">{tr("mk.emptyFilter")}</div> : (
       <div className="card tw"><table>
-        <thead><tr><th className="hm">#</th>{th("name", "mk.col.asset")}{th("price", "mk.col.price")}{th("change", "mk.col.change")}<th className="hm">{tr("mk.col.chart")}</th><th className="hm">{tr("mk.col.time")}</th><th><span className="sr">{tr("mk.fav")}</span></th></tr></thead>
+        <thead><tr><th className="hm">#</th>{th("name", "mk.col.asset")}{th("price", "mk.col.price")}{th("change", "mk.col.change", "hs")}<th className="hm">{tr("mk.col.chart")}</th><th className="hm">{tr("mk.col.time")}</th><th><span className="sr">{tr("mk.fav")}</span></th></tr></thead>
         <tbody>{rows.map((a, i) => (
-          <tr key={a.id}><td className="mt hm">{offset + i + 1}</td>
-            <td><Link href={`/mercado/${a.id}`} className="row" style={{ textDecoration: "none", color: "inherit", flexWrap: "nowrap", gap: 10 }}><Coin symbol={a.symbol.replace("USD/", "")} /><div><b>{a.symbol}</b><br /><span className="mt" style={{ fontSize: 12 }}>{a.name}</span></div></Link></td>
-            <td className="num">{priceText(a, lang)}</td>
-            <td className={`num ${a.changePct24h === null ? "" : a.changePct24h >= 0 ? "up" : "dn"}`}><Chg v={a.changePct24h} lang={lang} /></td>
+          <tr key={a.id} className="rowlink"><td className="mt hm">{offset + i + 1}</td>
+            <td><Link href={`/mercado/${a.id}`} className="row stretch" style={{ textDecoration: "none", color: "inherit", flexWrap: "nowrap", gap: 10 }}><Coin symbol={a.symbol.replace("USD/", "")} /><div><b>{a.symbol}</b><br /><span className="mt" style={{ fontSize: 12 }}>{a.name}</span></div></Link></td>
+            <td className="num">{priceText(a, lang)}<span className="sm-only"><Chg v={a.changePct24h} lang={lang} /></span></td>
+            <td className={`num hs ${a.changePct24h === null ? "" : a.changePct24h >= 0 ? "up" : "dn"}`}><Chg v={a.changePct24h} lang={lang} /></td>
             <td className="hm" style={{ width: 110 }}><Spark values={a.sparkline} up={a.sparkline.length > 1 && a.sparkline[a.sparkline.length - 1] >= a.sparkline[0]} /></td>
             <td className="hm src">{clock(a.updatedAt, lang)}{isStale(a.updatedAt, Date.now(), a.staleAfterMs) && <span className="bd a stale">{tr("home.stale")}</span>}</td>
             <td><FavoriteButton itemType="asset" itemId={a.id} initial={favs.has(a.id)} labels={fl} metadata={{ symbol: a.symbol, name: a.name, category: a.category }} /></td></tr>))}</tbody>
