@@ -24,7 +24,8 @@ def new_call(pg, sym, direction, entry, stop, tps, lev="", market="crypto_future
     for i, t in enumerate(tps): pg.fill(f"[data-testid=f-tp{i + 1}]", t)
     if lev: pg.fill("[data-testid=f-leverage]", lev)
     pg.fill("[data-testid=f-analyst]", analyst)
-    pg.click("[data-testid=f-publish]" if publish else "[data-testid=f-draft]"); pg.wait_for_selector("[data-testid=adm-ok]", timeout=15000)
+    pg.wait_for_function("document.querySelector('[data-testid=f-preview]')?.innerText.includes('NOVA CALL')", timeout=15000)   # formulário hidratado (pré-visualização ao vivo)
+    pg.click("[data-testid=f-publish]" if publish else "[data-testid=f-draft]"); pg.wait_for_selector("[data-testid=adm-ok]", timeout=25000)
     return pg.url.split("/admin/calls/")[1].split("?")[0]
 try:
     with sync_playwright() as p:
