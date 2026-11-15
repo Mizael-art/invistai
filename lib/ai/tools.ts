@@ -18,7 +18,7 @@ export type Block =
   | { type: "compare"; items: { symbol: string; currency: string; price: number | null; changePct24h: number | null; score: number; verdict: string; regime: string }[]; source: string; asOf: string }
   | { type: "news"; items: { title: string; source: string; url: string; publishedAt: string }[]; source: string; asOf: string }
   | { type: "overview"; items: { symbol: string; name: string; price: number; changePct24h: number | null; currency: string }[]; source: string; asOf: string };
-export interface ToolCtx { userId: string; lang: "pt" | "en" }
+export interface ToolCtx { userId: string; lang: "pt" | "en"; kb?: (q: string) => Promise<{ title: string; source: string | null; content: string }[]> }
 export interface ToolOut { result: unknown; blocks: Block[] }
 
 const cls = z.enum(ASSET_CLASSES as [AssetClass, ...AssetClass[]]).optional();
@@ -32,6 +32,7 @@ export const TOOL_SCHEMAS = {
   scan_opportunities: z.object({ direction: z.enum(["alta", "baixa", "qualquer"]).default("qualquer"), limit: z.number().int().min(1).max(10).default(5) }),
   get_market_overview: z.object({}),
   search_market_news: z.object({ query: z.string().trim().max(80).optional() }),
+  search_knowledge_base: z.object({ query: z.string().trim().min(2).max(300) }),
   get_user_portfolio: z.object({}),
   get_economic_calendar: z.object({}),
 };
@@ -47,6 +48,7 @@ export const TOOL_DEFS: { name: ToolName; description: string; parameters: Recor
   { name: "get_market_overview", description: "Panorama: top 10 criptomoedas por capitalização (CoinGecko) e principais pares de moedas contra o dólar (referência diária do BCE).", parameters: { type: "object", properties: {} } },
   { name: "search_market_news", description: "Notícias recentes de mercado (fonte e horário). Sem `query`, traz as últimas gerais.", parameters: { type: "object", properties: { query: { type: "string" } } } },
   { name: "get_user_portfolio", description: "Ativos que o usuário marcou como favoritos na plataforma (lista de acompanhamento; não há quantidades nem preço médio).", parameters: { type: "object", properties: {} } },
+  { name: "search_knowledge_base", description: "Busca na base de conhecimento da TRADEON (métodos, playbooks, gestão de risco, glossário e materiais da equipe). Use para conceitos, metodologia e regras da casa.", parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] } },
   { name: "get_economic_calendar", description: "Calendário econômico (agenda de indicadores macro).", parameters: { type: "object", properties: {} } },
 ];
 
@@ -127,6 +129,11 @@ export async function runTool(name: string, rawArgs: unknown, ctx: ToolCtx): Pro
         const f = await listFavorites(ctx.userId); if (!f.ok) return { result: { error: "unavailable" }, blocks: [] };
         const assets = toItems(f.rows).filter((x) => x.kind === "asset").map((x) => ({ id: x.id, symbol: x.kind === "asset" ? x.symbol : null, name: x.kind === "asset" ? x.name : null, addedAt: x.createdAt }));
         return { result: { kind: "watchlist", assets, note: "Lista de favoritos do usuário. A plataforma ainda não registra quantidades, preço médio ou rentabilidade de carteira." }, blocks: [] };
+      }
+      case "search_knowledge_base": {
+        if (!ctx.kb) return { result: { available: false, message: "Base de conhecimento indisponível." }, blocks: [] };
+        const hits = await ctx.kb(a.query as string);
+        return { result: hits.length ? { items: hits.map((h) => ({ document: h.title, source: h.source, text: h.content })) } : { items: [], message: "Nada encontrado na base para essa busca." }, blocks: [] };
       }
       case "get_economic_calendar":
         return { result: { available: false, message: "O calendário econômico ainda não está integrado a uma fonte de dados. Não informe datas ou valores de indicadores sem fonte." }, blocks: [] };

@@ -3,6 +3,13 @@ import { TOOL_DEFS, runTool, type Block, type ToolCtx } from "./tools";
 /** Camada própria de orquestração: conversa com o modelo (OpenAI Chat Completions ou compatível, ou Anthropic Messages),
  *  executa as ferramentas pedidas no servidor e devolve o texto final + cartões. A chave fica só no servidor. */
 export interface LlmEnv { provider: "openai" | "anthropic"; apiKey: string; model: string; baseUrl: string }
+/** IA reserva (opcional), usada quando a principal atinge limite, cai ou falha: AI_FALLBACK_PROVIDER / _API_KEY / _MODEL / _BASE_URL. */
+export function llmFallbackEnv(e = process.env): LlmEnv | null {
+  if (!e.AI_FALLBACK_API_KEY) return null;
+  return llmEnv({ AI_PROVIDER: e.AI_FALLBACK_PROVIDER, AI_API_KEY: e.AI_FALLBACK_API_KEY, AI_MODEL: e.AI_FALLBACK_MODEL, AI_BASE_URL: e.AI_FALLBACK_BASE_URL } as unknown as NodeJS.ProcessEnv);
+}
+/** Erros em que vale tentar a IA reserva (limite, indisponibilidade, rede). Erros de conteúdo/configuração não. */
+export const retriable = (code: string) => code === "rate_limited" || code === "timeout" || code === "network" || /^http_5\d\d$/.test(code);
 export function llmEnv(e = process.env): LlmEnv | null {
   const provider = e.AI_PROVIDER === "anthropic" ? "anthropic" : "openai"; const apiKey = e.AI_API_KEY || (provider === "openai" ? e.OPENAI_API_KEY : e.ANTHROPIC_API_KEY);
   if (!apiKey) return null;

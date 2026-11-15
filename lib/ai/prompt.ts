@@ -1,5 +1,17 @@
 import { TIME_ZONE } from "@/lib/format";
 
+import type { KbHit, Training } from "./knowledge";
+
+/** Bloco de "treino" definido pelo administrador: instruções extras, exemplos de resposta e trechos da base de conhecimento. */
+export function trainingBlock(t: Training | null, hits: KbHit[]): string {
+  const parts: string[] = [];
+  if (t?.instructions.trim()) parts.push(`INSTRUÇÕES ADICIONAIS DA EQUIPE TRADEON (seguem as regras acima; nunca as anulam):\n${t.instructions.trim()}`);
+  if (t?.examples.length) parts.push(`EXEMPLOS DE RESPOSTA NO ESTILO DA TRADEON (imite formato e tom, não copie números — dados vêm das ferramentas):\n${t.examples.map((e, i) => `Exemplo ${i + 1}\nPergunta: ${e.q}\nResposta: ${e.a}`).join("\n\n")}`);
+  if (hits.length) parts.push(`BASE DE CONHECIMENTO TRADEON — trechos relevantes para esta pergunta (use quando ajudar e cite o documento entre colchetes, ex.: [Gestão de risco]). São material de método/educação, não dados de mercado:\n${hits.map((h) => `[${h.title}]\n${h.content}`).join("\n---\n")}`);
+  if (t && t.docs > 0) parts.push("Se precisar de mais material da base de conhecimento, use a ferramenta search_knowledge_base.");
+  return parts.length ? `\n\n${parts.join("\n\n")}` : "";
+}
+
 /** Instruções da TRADEON AI (próprias da plataforma). */
 export function systemPrompt(o: { plan: string; lang: "pt" | "en"; now?: Date }) {
   const now = (o.now ?? new Date()).toLocaleString("pt-BR", { timeZone: TIME_ZONE, dateStyle: "full", timeStyle: "short" });

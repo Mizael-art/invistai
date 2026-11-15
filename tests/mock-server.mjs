@@ -76,6 +76,8 @@ http.createServer(async (req, res) => {
     const anth = u.pathname.endsWith("/v1/messages");
     const key = anth ? req.headers["x-api-key"] : (req.headers.authorization || "").replace(/^Bearer /, "");
     if (key !== "sk-test-llm") return send(401, { error: { message: "bad key" } });
+    if (req.method === "GET" && /\/models$/.test(u.pathname)) return send(200, { object: "list", data: [{ id: "test-model" }, { id: "models/gemini-flash-test" }] });
+    if (/oi-modelo-errado/.test(JSON.stringify(body.model || ""))) return send(404, { error: { message: "model not found" } });
     const msgs = body.messages || []; const textOf = (m) => typeof m.content === "string" ? m.content : Array.isArray(m.content) ? m.content.filter((c) => c.type === "text").map((c) => c.text).join(" ") : "";
     let li = -1; for (let i = msgs.length - 1; i >= 0; i--) if (msgs[i].role === "user" && textOf(msgs[i])) { li = i; break; }
     const q = li >= 0 ? textOf(msgs[li]) : ""; const after = msgs.slice(li + 1);

@@ -85,6 +85,12 @@ Sessão em cookie HttpOnly (Supabase SSR); rotas privadas protegidas no middlewa
 - **Primeiro administrador** (uma vez, no SQL Editor do Supabase): `insert into public.app_admins (user_id) select id from auth.users where email = 'SEU_EMAIL';` — depois disso novos administradores são concedidos pelo próprio painel.
 - **Pendente**: bloquear/suspender contas exige a API Admin do Supabase Auth (chave de serviço) num backend isolado; não implementado para não expor a chave.
 
+## Treinar a TRADEON AI (sem fine-tuning)
+- Painel **Admin → Treinar IA** (`/admin/ia`): instruções extras (somam-se às regras fixas de segurança), **base de conhecimento** (arquivos .txt/.md ou texto colado, divididos em trechos e buscados em português a cada pergunta; a IA cita o documento), **exemplos** de pergunta/resposta ideal (até 8 ativos) e prévia da busca.
+- **Testar conexão**: faz uma chamada mínima na IA principal e na reserva e lista os modelos que a chave pode usar (a chave nunca é exibida).
+- **IA reserva**: com `AI_FALLBACK_*` configurado, limite (429), queda (5xx) ou tempo esgotado na principal fazem a resposta vir da reserva automaticamente.
+- Banco (migração 14): `ai_settings`, `ai_knowledge`, `ai_knowledge_chunks` (tsvector português + GIN), `ai_examples`; sem acesso do cliente; leitura pela IA só com o segredo do servidor.
+
 ## Pendências / dependências externas
 - **Validar com serviços reais:** projeto Supabase + SMTP (login, cadastro, e-mails de confirmação/recuperação), plano de produção da NewsAPI (o plano gratuito não permite uso em produção), símbolos no TradingView real, respostas reais da CoinGecko.
 - **Configurar:** e-mail oficial de suporte (`SUPPORT_EMAIL`).

@@ -35,7 +35,8 @@ const curPlan = (uid) => { const s = subs.get(uid); return s && ["pro", "max"].i
 const subRow = (uid) => subs.get(uid) || { plan_id: "free", status: "none", provider: null, provider_customer_id: null, provider_subscription_id: null, started_at: null, current_period_start: null, current_period_end: null, cancel_at_period_end: false, canceled_at: null, updated_at: new Date().toISOString() };
 const aiTables = { ai_conversations: [], ai_messages: [] }; let aiSeq = 0; const aiRpc = [];
 const admins = new Set(); const vipCalls = []; const vipEvents = []; const audit = []; let evSeq = 0;
-const resetBilling = () => { admins.clear(); vipCalls.length = 0; vipEvents.length = 0; audit.length = 0; aiTables.ai_conversations.length = 0; aiTables.ai_messages.length = 0; aiRpc.length = 0; subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
+const train = { instructions: '', instructions_updated_at: null, docs: [], examples: [] };
+const resetBilling = () => { train.instructions = ''; train.instructions_updated_at = null; train.docs.length = 0; train.examples.length = 0; admins.clear(); vipCalls.length = 0; vipEvents.length = 0; audit.length = 0; aiTables.ai_conversations.length = 0; aiTables.ai_messages.length = 0; aiRpc.length = 0; subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
 const readBody = (req) => new Promise((r) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => { try { r(JSON.parse(d || "{}")); } catch { r({}); } }); });
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), send = (c, b, h = {}) => { res.writeHead(c, { "content-type": "application/json", ...h }); res.end(b === undefined ? "" : JSON.stringify(b)); };
@@ -52,6 +53,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === "/__confirm") { const c = created.get(u.searchParams.get("email")); if (c) c.pending = false; return send(200, { ok: !!c }); }
   if (u.pathname === "/__set_admin") { const us = lookup((u.searchParams.get("email") || "").toLowerCase()); if (!us) return send(404, {}); admins.add(us.id); return send(200, { ok: true }); }
   if (u.pathname === "/__calls") return send(200, { calls: vipCalls, events: vipEvents, audit, notifs: notifs.filter((n) => n.kind === "vip_call") });
+  if (u.pathname === "/__train") return send(200, train);
   if (u.pathname === "/__ai") return send(200, { ...aiTables, rpc: aiRpc });
   if (u.pathname === "/__ai_usage") { const us = lookup((u.searchParams.get("email") || "").toLowerCase()); if (!us) return send(404, {}); aiUsage.set(us.id, +(u.searchParams.get("used") || 0)); return send(200, { ok: true }); }
   if (u.pathname === "/__billing") return send(200, { subs: Object.fromEntries(subs), payments, subEvents, aiUsage: Object.fromEntries(aiUsage), webhookEvents: [...webhookEvents] });
@@ -267,6 +269,30 @@ http.createServer(async (req, res) => {
     const out = rows.map(({ seq, call_id, created_by, ...r }) => (u.pathname.endsWith("vip_call_events") ? { ...r } : r));
     if (wantsObject) return out.length === 1 ? send(200, out[0]) : send(406, { code: "PGRST116", message: "JSON object requested, multiple (or no) rows returned", details: `The result contains ${out.length} rows` });
     return send(200, out);
+  }
+  // ----- Treino da IA (busca por palavras com radical simples; a busca em português real é testada no PGlite) -----
+  const stem = (w) => w.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/(oes|aes|s)$/, "").slice(0, 6);
+  const kbHits = (q, k) => { const terms = (q.match(/[\p{L}\d]{3,}/gu) || []).map(stem); if (!terms.length) return [];
+    return train.docs.filter((d) => d.active).flatMap((d) => d.chunks.map((c) => ({ title: d.title, source: d.source, content: c, rank: terms.filter((t) => (c.match(/[\p{L}\d]{3,}/gu) || []).map(stem).includes(t)).length })))
+      .filter((h) => h.rank > 0).sort((a, b) => b.rank - a.rank).slice(0, k); };
+  if (u.pathname === "/rest/v1/rpc/ai_training_config" || u.pathname === "/rest/v1/rpc/ai_kb_search") {
+    const b = await readBody(req); if (b.secret !== BILLING_SECRET) return send(403, { code: "42501", message: "billing_forbidden" });
+    if (u.pathname.endsWith("ai_training_config")) return send(200, { instructions: train.instructions, examples: train.examples.filter((e) => e.active).slice(0, 8).map((e) => ({ q: e.question, a: e.answer })), docs: train.docs.filter((d) => d.active).length });
+    return send(200, kbHits(b.q || "", b.k || 4));
+  }
+  if (u.pathname.startsWith("/rest/v1/rpc/admin_ai_")) {
+    const sub = subOf(req), b = await readBody(req), fn = u.pathname.slice("/rest/v1/rpc/".length);
+    if (!sub || !admins.has(sub)) return send(400, { code: "42501", message: "admin_required" });
+    const log = (action, id) => audit.push({ id: crypto.randomUUID(), admin_id: sub, action, target_type: "ai", target_id: id, details: null, created_at: new Date().toISOString() });
+    if (fn === "admin_ai_training") return send(200, { ...train, docs: train.docs.map(({ chunks, ...d }) => ({ ...d, chunks: chunks.length })) });
+    if (fn === "admin_ai_set_instructions") { train.instructions = b.p_text || ""; train.instructions_updated_at = new Date().toISOString(); log("ai.instructions", "instructions"); return send(200, null); }
+    if (fn === "admin_ai_add_doc") { if (!b.p_chunks?.length) return send(400, { code: "22023", message: "empty_document" }); const id = crypto.randomUUID();
+      train.docs.unshift({ id, title: b.p_title, source: b.p_source, active: true, chars: b.p_chunks.join("").length, chunks: b.p_chunks, created_at: new Date().toISOString() }); log("ai.doc.add", id); return send(200, id); }
+    if (fn === "admin_ai_doc_set") { const d = train.docs.find((x) => x.id === b.p_id); if (!d) return send(400, { code: "P0002", message: "not_found" }); if (b.p_delete) train.docs.splice(train.docs.indexOf(d), 1); else if (b.p_active != null) d.active = b.p_active; log("ai.doc", d.id); return send(200, null); }
+    if (fn === "admin_ai_add_example") { const id = crypto.randomUUID(); train.examples.push({ id, question: b.p_q, answer: b.p_a, active: true, created_at: new Date().toISOString() }); log("ai.example.add", id); return send(200, id); }
+    if (fn === "admin_ai_example_set") { const e = train.examples.find((x) => x.id === b.p_id); if (!e) return send(400, { code: "P0002", message: "not_found" }); if (b.p_delete) train.examples.splice(train.examples.indexOf(e), 1); else if (b.p_active != null) e.active = b.p_active; return send(200, null); }
+    if (fn === "admin_ai_kb_preview") return send(200, kbHits(b.q || "", 4).map(({ title, content, rank }) => ({ title, content, rank })));
+    return send(404, { code: "PGRST202" });
   }
   if (u.pathname.startsWith("/rest/v1/rpc/admin_")) {
     const sub = subOf(req), b = await readBody(req), fn = u.pathname.slice("/rest/v1/rpc/".length);

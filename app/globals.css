@@ -604,3 +604,8 @@ html.splash-out .splash-ov{opacity:0;pointer-events:none}
   header .btn{padding:0 12px;min-height:38px;font-size:13.5px}
 }
 @media (max-width:370px){header .btn{padding:0 9px}header .ic{min-width:34px;padding:0 4px}}
+.adm-ai{display:grid;gap:16px}
+.adm-ai textarea{width:100%}
+.kb-prev{margin:10px 0 0;padding-left:18px;display:grid;gap:8px}.kb-prev p{margin:4px 0 0}
+.kb-ex{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}
+.kb-ex li{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;border:1px solid var(--bd);border-radius:12px;padding:10px 12px}.kb-ex li.off{opacity:.55}.kb-ex p{margin:4px 0 0}

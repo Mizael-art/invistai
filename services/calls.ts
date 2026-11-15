@@ -35,3 +35,7 @@ export async function adminListUsers(search = "", offset = 0): Promise<AdminUser
 export async function adminAudit(limit = 30): Promise<{ id: string; action: string; target_type: string | null; target_id: string | null; created_at: string; details: unknown }[] | null> {
   const sb = await getSupabase(); if (!sb) return null; const { data, error } = await sb.rpc("admin_audit", { p_limit: limit }); return error ? null : (data as never);
 }
+export interface AdminTraining { instructions: string; instructions_updated_at: string | null; docs: { id: string; title: string; source: string | null; active: boolean; chars: number; chunks: number; created_at: string }[]; examples: { id: string; question: string; answer: string; active: boolean; created_at: string }[] }
+export async function adminTraining(): Promise<AdminTraining | null> {
+  const sb = await getSupabase(); if (!sb) return null; const { data, error } = await sb.rpc("admin_ai_training"); return error ? null : (data as AdminTraining);
+}

@@ -29,7 +29,7 @@ beforeAll(async () => {
 describe("migrações em Postgres real", () => {
   it("todas aplicam em ordem e as tabelas têm RLS ligada", async () => {
     const r = await db.query<{ relname: string; relrowsecurity: boolean }>(`select relname, relrowsecurity from pg_class where relnamespace='public'::regnamespace and relkind='r' order by 1`);
-    expect(r.rows.map((x) => x.relname)).toEqual(["admin_audit_logs", "ai_conversations", "ai_messages", "ai_requests", "ai_usage", "app_admins", "favorites", "notifications", "payment_webhook_events", "profiles", "subscription_events", "subscription_payments", "subscription_plans", "subscriptions", "user_preferences", "vip_call_events", "vip_calls"]);
+    expect(r.rows.map((x) => x.relname)).toEqual(["admin_audit_logs", "ai_conversations", "ai_examples", "ai_knowledge", "ai_knowledge_chunks", "ai_messages", "ai_requests", "ai_settings", "ai_usage", "app_admins", "favorites", "notifications", "payment_webhook_events", "profiles", "subscription_events", "subscription_payments", "subscription_plans", "subscriptions", "user_preferences", "vip_call_events", "vip_calls"]);
     expect(r.rows.every((x) => x.relrowsecurity)).toBe(true);
   });
   it("cadastro cria perfil (nome; telefone só em E.164) e notificação de boas-vindas", async () => {
@@ -307,5 +307,36 @@ describe("Etapa 3 — Calls VIP e funções administrativas (Postgres real)", ()
     });
     await as(PRO, async () => { expect((await db.query<{ a: boolean }>("select public.am_admin() a")).rows[0].a).toBe(true); });
     await as(FREE, async () => { expect((await db.query<{ a: boolean; p: string }>("select public.am_admin() a, public.my_plan() p")).rows[0]).toEqual({ a: false, p: "free" }); });
+  });
+});
+
+describe("Treino da IA (instruções, base de conhecimento, exemplos)", () => {
+  const ADM = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", USR = "cccccccc-cccc-4ccc-8ccc-cccccccccccc", S = "s".repeat(40);
+  beforeAll(async () => { await db.query("insert into auth.users (id, email) values ($1, 'kbadm@t.com'), ($2, 'kbusr@t.com')", [ADM, USR]); await db.query("insert into public.app_admins (user_id) values ($1)", [ADM]); });
+  it("admin cadastra; usuário comum não lê nem escreve; busca em português encontra o trecho certo", async () => {
+    await as(ADM, async () => {
+      await db.query("select public.admin_ai_set_instructions('Sempre cite a gestão de risco.')");
+      await db.query("select public.admin_ai_add_doc('Gestão de risco', 'manual interno', array['O risco por operação deve ficar entre 0,5% e 1% do capital.', 'Wyckoff: fases de acumulação, markup, distribuição e markdown.'])");
+      await db.query("select public.admin_ai_add_example('O que é stop?', 'Stop é o nível que invalida a operação.')");
+      const p = await db.query<{ title: string }>("select title from public.admin_ai_kb_preview('qual o risco ideal por operação?')"); expect(p.rows[0].title).toBe("Gestão de risco");
+    });
+    await as(USR, async () => {
+      for (const q of ["select * from public.ai_knowledge_chunks", "select * from public.ai_settings", "select public.admin_ai_training()", "select public.admin_ai_set_instructions('x')", `select * from public.ai_kb_search('${"t".repeat(40)}', 'risco')`])
+        expect(await fails(db.query(q)), q).toBe(true);
+      const r = await db.query<{ content: string }>("select content from public.ai_kb_search($1, 'riscos nas operações', 3)", [S]);
+      expect(r.rows[0].content).toMatch(/0,5% e 1%/);                                   // stemming: "riscos/operações" acha "risco/operação"
+      expect((await db.query("select * from public.ai_kb_search($1, 'acumulação wyckoff', 3)", [S])).rows.length).toBe(1);
+      const c = (await db.query<{ c: { instructions: string; examples: unknown[]; docs: number } }>("select public.ai_training_config($1) c", [S])).rows[0].c;
+      expect(c).toMatchObject({ instructions: "Sempre cite a gestão de risco.", docs: 1 }); expect(c.examples).toHaveLength(1);
+    });
+  });
+  it("documento desativado sai da busca; exclusão remove os trechos; ações auditadas", async () => {
+    const id = (await db.query<{ id: string }>("select id from public.ai_knowledge limit 1")).rows[0].id;
+    await as(ADM, async () => { await db.query("select public.admin_ai_doc_set($1, false)", [id]); });
+    expect((await db.query("select * from public.ai_kb_search($1, 'risco', 3)", [S])).rows).toEqual([]);
+    await as(ADM, async () => { await db.query("select public.admin_ai_doc_set($1, null, true)", [id]); });
+    expect((await db.query<{ n: number }>("select count(*)::int n from public.ai_knowledge_chunks")).rows[0].n).toBe(0);
+    const a = await db.query<{ action: string }>("select action from public.admin_audit_logs where action like 'ai.%' order by created_at");
+    expect(a.rows.map((x) => x.action)).toEqual(["ai.instructions", "ai.doc.add", "ai.example.add", "ai.doc.toggle", "ai.doc.delete"]);
   });
 });
