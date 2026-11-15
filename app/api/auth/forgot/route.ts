@@ -4,6 +4,7 @@ import { getSupabase } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rateLimit";
 import { sameOrigin } from "@/lib/originCheck";
 import { mapSignUpError } from "@/lib/authErrors";
+import { appBase } from "@/lib/publicUrl";
 
 /** Solicita o e-mail de recuperação. A resposta de sucesso é a MESMA para e-mails existentes e inexistentes (não revela cadastro). */
 export async function POST(req: Request) {
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
   const sb = await getSupabase();
   if (!sb) return NextResponse.json({ error: "auth_not_configured" }, { status: 503 });
   try {
-    const { error } = await sb.auth.resetPasswordForEmail(email);
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: `${appBase(req)}/auth/confirm?type=recovery` });
     if (error) { const m = mapSignUpError(error); return NextResponse.json({ error: m.kind === "email_exists" || m.kind === "weak_password" ? "unavailable" : m.kind }, { status: m.kind === "email_exists" || m.kind === "weak_password" ? 503 : m.status }); }
     return NextResponse.json({ ok: true });
   } catch { return NextResponse.json({ error: "unavailable" }, { status: 503 }); }      // nunca registra o e-mail

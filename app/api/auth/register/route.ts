@@ -4,6 +4,7 @@ import { getSupabase } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rateLimit";
 import { sameOrigin } from "@/lib/originCheck";
 import { mapSignUpError } from "@/lib/authErrors";
+import { appBase } from "@/lib/publicUrl";
 
 export async function POST(req: Request) {
   if (!sameOrigin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
   const sb = await getSupabase();
   if (!sb) return NextResponse.json({ error: "auth_not_configured" }, { status: 503 });
   try {
-    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name, phone } } });
+    const { data, error } = await sb.auth.signUp({ email, password, options: { data: { name, phone }, emailRedirectTo: `${appBase(req)}/auth/confirm?next=%2F` } });
     if (error) { const m = mapSignUpError(error); return NextResponse.json({ error: m.kind }, { status: m.status }); }
     if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return NextResponse.json({ error: "email_exists" }, { status: 409 });   // e-mail já cadastrado (resposta ofuscada do Supabase)
     if (data.session) return NextResponse.json({ status: "signed_in" });

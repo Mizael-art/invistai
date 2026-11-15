@@ -7,14 +7,16 @@ import { RECOVERY_COOKIE, RECOVERY_MAX_AGE } from "@/lib/recovery";
 
 /** Links dos e-mails: /auth/confirm?token_hash=…&type=email|recovery  (modelos em docs/ETAPA_08.md e docs/ETAPA_09.md). */
 export async function GET(req: NextRequest) {
-  const sp = req.nextUrl.searchParams, type = sp.get("type"), hash = sp.get("token_hash") ?? "";
+  const sp = req.nextUrl.searchParams, type = sp.get("type"), hash = sp.get("token_hash") ?? "", code = sp.get("code") ?? "";
   const recovery = type === "recovery";
   const fail = () => NextResponse.redirect(publicUrl(req, recovery ? "/recuperar-senha?link=invalid" : "/login?confirm=failed"));
-  if (!isConfirmType(type) || hash.length < 6 || hash.length > 300) return fail();
+  // Dois formatos de link: o do modelo da casa (?token_hash=&type=) e o padrão do Supabase, que volta com ?code= (PKCE).
+  if (code) { if (code.length < 6 || code.length > 300 || (type !== null && !isConfirmType(type))) return fail(); }
+  else if (!isConfirmType(type) || hash.length < 6 || hash.length > 300) return fail();
   const sb = await getSupabase();
   if (!sb) return fail();
   try {
-    const { error } = await sb.auth.verifyOtp({ type: otpTypeFor(type), token_hash: hash });
+    const { error } = code ? await sb.auth.exchangeCodeForSession(code) : await sb.auth.verifyOtp({ type: otpTypeFor(type!), token_hash: hash });
     if (error) return fail();
   } catch { return fail(); }
   if (recovery) {                                   // destino fixo: o parâmetro `next` é ignorado na recuperação

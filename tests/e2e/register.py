@@ -45,6 +45,7 @@ try:
             pg.goto(B + "/cadastro"); pg.wait_for_selector("form"); e = fill(pg, name="  Maria   da  Silva ", phone=raw); submit(pg); pg.wait_for_selector("text=Verifique seu e-mail", timeout=10000)
             s = [x for x in stats()["signups"] if x["email"] == e][0]
             check(f"telefone '{raw}' → {e164}; nome normalizado; senha não enviada em metadados", s["phone"] == e164 and s["name"] == "Maria da Silva" and "password" not in s)
+        check("link de confirmação volta para o próprio app (não localhost do Supabase)", s["redirectTo"] == B + "/auth/confirm?next=%2F", s["redirectTo"])
         # tela de sucesso com confirmação obrigatória
         pg.goto(B + "/cadastro"); pg.wait_for_selector("form"); e = fill(pg); submit(pg); pg.wait_for_selector("text=Verifique seu e-mail", timeout=10000)
         body = pg.inner_text("form, main, body")

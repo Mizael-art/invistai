@@ -88,7 +88,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === "/auth/v1/signup" && req.method === "POST") {
     const body = await readBody(req), email = String(body.email || "").toLowerCase(), meta = body.data || {};
     stats.signupCalls[email] = (stats.signupCalls[email] || 0) + 1;
-    stats.signups.push({ email, name: meta.name, phone: meta.phone, passwordLength: String(body.password || "").length });
+    stats.signups.push({ email, name: meta.name, phone: meta.phone, passwordLength: String(body.password || "").length, redirectTo: u.searchParams.get("redirect_to") });
     if (email === "exists@teste.com") return send(422, { code: 422, error_code: "user_already_exists", msg: "User already registered" });
     if (email === "dupe@teste.com") return send(200, { id: uuid("dupe"), aud: "authenticated", role: "authenticated", email, identities: [], user_metadata: {}, app_metadata: {}, created_at: new Date().toISOString() });
     if (email === "weakserver@teste.com") return send(422, { code: 422, error_code: "weak_password", msg: "Password is known to be weak and easy to guess", weak_password: { reasons: ["pwned"] } });
@@ -115,7 +115,7 @@ http.createServer(async (req, res) => {
     return send(403, { code: 403, error_code: "otp_expired", msg: "Email link is invalid or has expired" });
   }
   if (u.pathname === "/auth/v1/recover" && req.method === "POST") {
-    const body = await readBody(req), email = String(body.email || "").toLowerCase(); stats.recovers.push(email);
+    const body = await readBody(req), email = String(body.email || "").toLowerCase(); stats.recovers.push(email); stats.recoverRedirects = [...(stats.recoverRedirects || []), u.searchParams.get("redirect_to") ?? body.redirect_to ?? null];
     if (email === "rate@teste.com") return send(429, { code: 429, error_code: "over_email_send_rate_limit", msg: "Email rate limit exceeded" });
     if (email === "smtpfail@teste.com") return send(500, { code: 500, error_code: "unexpected_failure", msg: "Error sending recovery email" });
     if (email === "down@teste.com") return send(500, { code: 500, error_code: "unexpected_failure", msg: "boom" });

@@ -4,6 +4,7 @@ import { getSupabase } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rateLimit";
 import { sameOrigin } from "@/lib/originCheck";
 import { mapSignUpError } from "@/lib/authErrors";
+import { appBase } from "@/lib/publicUrl";
 
 /** Reenvia o e-mail de confirmação. Resposta genérica (não revela se o e-mail existe). */
 export async function POST(req: Request) {
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
   if (!rateLimit(`resend:${ip}:${email}`, 1, 60_000) || !rateLimit(`resend-h:${email}`, 5, 3_600_000)) return NextResponse.json({ error: "rate_limited" }, { status: 429 });
   try {
-    const { error } = await sb.auth.resend({ type: "signup", email });
+    const { error } = await sb.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${appBase(req)}/auth/confirm?next=%2F` } });
     if (error) { const m = mapSignUpError(error); return NextResponse.json({ error: m.kind }, { status: m.status }); }
     return NextResponse.json({ ok: true });
   } catch { return NextResponse.json({ error: "unavailable" }, { status: 503 }); }

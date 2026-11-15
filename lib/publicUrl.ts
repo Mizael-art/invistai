@@ -6,3 +6,7 @@ export function publicOrigin(req: Request): string {
   return `${proto}://${host}`;
 }
 export const publicUrl = (req: Request, pathAndQuery: string) => new URL(pathAndQuery, publicOrigin(req));
+
+/** Base dos links enviados por e-mail (confirmação/recuperação): APP_URL fixa em produção; senão a origem pública da requisição.
+ *  Sem isso o Supabase usa a "Site URL" do projeto (que vinha como localhost). */
+export const appBase = (req: Request) => (process.env.APP_URL?.replace(/\/+$/, "") || publicOrigin(req));
