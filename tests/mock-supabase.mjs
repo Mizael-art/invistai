@@ -36,7 +36,8 @@ const subRow = (uid) => subs.get(uid) || { plan_id: "free", status: "none", prov
 const aiTables = { ai_conversations: [], ai_messages: [] }; let aiSeq = 0; const aiRpc = [];
 const admins = new Set(); const vipCalls = []; const vipEvents = []; const audit = []; let evSeq = 0;
 const train = { instructions: '', instructions_updated_at: null, docs: [], examples: [] };
-const resetBilling = () => { train.instructions = ''; train.instructions_updated_at = null; train.docs.length = 0; train.examples.length = 0; admins.clear(); vipCalls.length = 0; vipEvents.length = 0; audit.length = 0; aiTables.ai_conversations.length = 0; aiTables.ai_messages.length = 0; aiRpc.length = 0; subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
+const brokers = [];
+const resetBilling = () => { brokers.length = 0; train.instructions = ''; train.instructions_updated_at = null; train.docs.length = 0; train.examples.length = 0; admins.clear(); vipCalls.length = 0; vipEvents.length = 0; audit.length = 0; aiTables.ai_conversations.length = 0; aiTables.ai_messages.length = 0; aiRpc.length = 0; subs.clear(); payments.length = 0; subEvents.length = 0; aiUsage.clear(); webhookEvents.clear(); };
 const readBody = (req) => new Promise((r) => { let d = ""; req.on("data", (c) => (d += c)); req.on("end", () => { try { r(JSON.parse(d || "{}")); } catch { r({}); } }); });
 http.createServer(async (req, res) => {
   const u = new URL(req.url, "http://x"), send = (c, b, h = {}) => { res.writeHead(c, { "content-type": "application/json", ...h }); res.end(b === undefined ? "" : JSON.stringify(b)); };
@@ -53,6 +54,7 @@ http.createServer(async (req, res) => {
   if (u.pathname === "/__confirm") { const c = created.get(u.searchParams.get("email")); if (c) c.pending = false; return send(200, { ok: !!c }); }
   if (u.pathname === "/__set_admin") { const us = lookup((u.searchParams.get("email") || "").toLowerCase()); if (!us) return send(404, {}); admins.add(us.id); return send(200, { ok: true }); }
   if (u.pathname === "/__calls") return send(200, { calls: vipCalls, events: vipEvents, audit, notifs: notifs.filter((n) => n.kind === "vip_call") });
+  if (u.pathname === "/__brokers") return send(200, brokers);
   if (u.pathname === "/__train") return send(200, train);
   if (u.pathname === "/__ai") return send(200, { ...aiTables, rpc: aiRpc });
   if (u.pathname === "/__ai_usage") { const us = lookup((u.searchParams.get("email") || "").toLowerCase()); if (!us) return send(404, {}); aiUsage.set(us.id, +(u.searchParams.get("used") || 0)); return send(200, { ok: true }); }
@@ -247,6 +249,33 @@ http.createServer(async (req, res) => {
     const b = await readBody(req), sub = subOf(req); if (b.secret !== BILLING_SECRET) return send(403, { code: "42501", message: "billing_forbidden" });
     aiRpc.push({ fn: u.pathname.split("/").pop(), user: sub, ...Object.fromEntries(Object.entries(b).filter(([k]) => k !== "secret")) });
     if (u.pathname.endsWith("ai_release") && sub) aiUsage.set(sub, Math.max((aiUsage.get(sub) || 0) - 1, 0));
+    return send(200, null);
+  }
+  // ----- Corretoras: metadados por RLS (sem colunas cifradas); escrita/credenciais só via RPC com segredo -----
+  const BK_COLS = ["id", "exchange", "label", "key_hint", "permissions", "can_trade", "ip_restricted", "bots_allowed", "status", "last_error", "last_checked_at", "created_at"];
+  if (u.pathname === "/rest/v1/broker_connections") {
+    const sub = subOf(req); if (!sub) return send(401, { code: "42501" });
+    const cols = (u.searchParams.get("select") || "*").split(","); if (cols.some((c) => c === "*" || !BK_COLS.includes(c.trim()))) return send(403, { code: "42501", message: "permission denied for column" });
+    const idf = (u.searchParams.get("id") || "").replace(/^eq\./, ""); const mine = brokers.filter((b) => b.user_id === sub && (!idf || b.id === idf));
+    const pick = (b) => Object.fromEntries(cols.map((c) => [c.trim(), b[c.trim()]]));
+    if (req.method === "GET") return wantsObject ? (mine.length === 1 ? send(200, pick(mine[0])) : send(406, { code: "PGRST116", details: `The result contains ${mine.length} rows` })) : send(200, mine.map(pick));
+    if (req.method === "DELETE") { for (const b of mine) brokers.splice(brokers.indexOf(b), 1); return send(200, mine.map(pick)); }
+    if (req.method === "PATCH") { const body = await readBody(req); if (Object.keys(body).some((k) => !["label", "bots_allowed"].includes(k))) return send(403, { code: "42501" }); mine.forEach((b) => Object.assign(b, body)); return send(200, mine.map(pick)); }
+    return send(403, { code: "42501" });
+  }
+  if (["/rest/v1/rpc/broker_save", "/rest/v1/rpc/broker_credentials", "/rest/v1/rpc/broker_mark"].includes(u.pathname)) {
+    const b = await readBody(req), sub = subOf(req); if (b.secret !== BILLING_SECRET) return send(403, { code: "42501", message: "billing_forbidden" }); if (!sub) return send(401, { code: "28000" });
+    if (u.pathname.endsWith("broker_save")) {
+      if (b.p_permissions?.withdraw) return send(400, { code: "22023", message: "withdraw_enabled" });
+      if (brokers.filter((x) => x.user_id === sub).length >= 5) return send(400, { code: "22023", message: "too_many_connections" });
+      let row = brokers.find((x) => x.user_id === sub && x.exchange === b.p_exchange && x.key_hint === b.p_key_hint);
+      if (!row) { row = { id: crypto.randomUUID(), user_id: sub, created_at: new Date().toISOString(), bots_allowed: false }; brokers.push(row); }
+      Object.assign(row, { exchange: b.p_exchange, label: b.p_label || "", key_hint: b.p_key_hint, key_enc: b.p_key_enc, secret_enc: b.p_secret_enc, permissions: b.p_permissions, can_trade: !!b.p_can_trade, ip_restricted: !!b.p_ip_restricted, status: "active", last_error: null, last_checked_at: new Date().toISOString() });
+      return send(200, row.id);
+    }
+    const row = brokers.find((x) => x.id === b.p_id && x.user_id === sub);
+    if (u.pathname.endsWith("broker_credentials")) return send(200, row ? [{ exchange: row.exchange, key_enc: row.key_enc, secret_enc: row.secret_enc }] : []);
+    if (row) Object.assign(row, { status: b.p_status, permissions: b.p_permissions ?? row.permissions, last_error: b.p_error, last_checked_at: new Date().toISOString(), bots_allowed: b.p_status === "invalid" ? false : row.bots_allowed });
     return send(200, null);
   }
   // ----- Etapa 3: Calls VIP (RLS e funções admin_* simuladas; a lógica SQL real é testada no PGlite) -----

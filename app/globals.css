@@ -609,3 +609,10 @@ html.splash-out .splash-ov{opacity:0;pointer-events:none}
 .kb-prev{margin:10px 0 0;padding-left:18px;display:grid;gap:8px}.kb-prev p{margin:4px 0 0}
 .kb-ex{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:10px}
 .kb-ex li{display:flex;gap:12px;justify-content:space-between;align-items:flex-start;border:1px solid var(--bd);border-radius:12px;padding:10px 12px}.kb-ex li.off{opacity:.55}.kb-ex p{margin:4px 0 0}
+
+/* ===== Corretora ===== */
+.bk{display:grid;gap:16px}.bk-conn .row{flex-wrap:wrap}
+.bk-big b{font-size:22px}
+.bk-howto{margin:12px 0;padding-left:20px;font-size:13.5px;color:var(--mt);display:grid;gap:4px}
+.bk-new{max-width:760px}
+td.up,b.up{color:var(--g-tx)}td.dn,b.dn{color:var(--rd)}

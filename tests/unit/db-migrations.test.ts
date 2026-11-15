@@ -29,7 +29,7 @@ beforeAll(async () => {
 describe("migrações em Postgres real", () => {
   it("todas aplicam em ordem e as tabelas têm RLS ligada", async () => {
     const r = await db.query<{ relname: string; relrowsecurity: boolean }>(`select relname, relrowsecurity from pg_class where relnamespace='public'::regnamespace and relkind='r' order by 1`);
-    expect(r.rows.map((x) => x.relname)).toEqual(["admin_audit_logs", "ai_conversations", "ai_examples", "ai_knowledge", "ai_knowledge_chunks", "ai_messages", "ai_requests", "ai_settings", "ai_usage", "app_admins", "favorites", "notifications", "payment_webhook_events", "profiles", "subscription_events", "subscription_payments", "subscription_plans", "subscriptions", "user_preferences", "vip_call_events", "vip_calls"]);
+    expect(r.rows.map((x) => x.relname)).toEqual(["admin_audit_logs", "ai_conversations", "ai_examples", "ai_knowledge", "ai_knowledge_chunks", "ai_messages", "ai_requests", "ai_settings", "ai_usage", "app_admins", "broker_connections", "favorites", "notifications", "payment_webhook_events", "profiles", "subscription_events", "subscription_payments", "subscription_plans", "subscriptions", "user_preferences", "vip_call_events", "vip_calls"]);
     expect(r.rows.every((x) => x.relrowsecurity)).toBe(true);
   });
   it("cadastro cria perfil (nome; telefone só em E.164) e notificação de boas-vindas", async () => {
@@ -338,5 +338,37 @@ describe("Treino da IA (instruções, base de conhecimento, exemplos)", () => {
     expect((await db.query<{ n: number }>("select count(*)::int n from public.ai_knowledge_chunks")).rows[0].n).toBe(0);
     const a = await db.query<{ action: string }>("select action from public.admin_audit_logs where action like 'ai.%' order by created_at");
     expect(a.rows.map((x) => x.action)).toEqual(["ai.instructions", "ai.doc.add", "ai.example.add", "ai.doc.toggle", "ai.doc.delete"]);
+  });
+});
+
+describe("Conexões com corretoras (Postgres real)", () => {
+  const U1 = "dddddddd-dddd-4ddd-8ddd-dddddddddddd", U2 = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", S = "s".repeat(40);
+  const save = (perm: object) => db.query<{ id: string }>("select public.broker_save($1, 'bybit', 'Principal', 'AbCd…wXyZ', 'v1:iv:tag:ct', 'v1:iv:tag:ct2', $2::jsonb, false, true) id", [S, JSON.stringify(perm)]);
+  beforeAll(async () => { await db.query("insert into auth.users (id, email) values ($1, 'b1@t.com'), ($2, 'b2@t.com')", [U1, U2]); });
+  it("salva só com o segredo do servidor, recusa chave com saque e não expõe o cifrado ao cliente", async () => {
+    const id = await as(U1, async () => {
+      expect(await fails(db.query("select public.broker_save($1, 'bybit', 'x', 'h', 'a', 'b', '{}'::jsonb, false, false)", ["t".repeat(40)]))).toBe(true);
+      expect(await fails(save({ read: true, withdraw: true }))).toBe(true);
+      expect(await fails(db.query("insert into public.broker_connections (user_id, exchange, key_hint, key_enc, secret_enc) values ($1, 'bybit', 'h', 'a', 'b')", [U1]))).toBe(true);
+      const r = await save({ read: true, withdraw: false }); return r.rows[0].id;
+    });
+    await as(U1, async () => {
+      expect(await fails(db.query("select key_enc from public.broker_connections"))).toBe(true);
+      expect(await fails(db.query("select * from public.broker_connections"))).toBe(true);           // select * inclui colunas cifradas → negado
+      expect((await db.query("select exchange, key_hint, status from public.broker_connections")).rows).toEqual([{ exchange: "bybit", key_hint: "AbCd…wXyZ", status: "active" }]);
+      expect(await fails(db.query("update public.broker_connections set key_enc = 'x'"))).toBe(true);
+      await db.query("update public.broker_connections set bots_allowed = true where id = $1", [id]);
+      const c = await db.query<{ key_enc: string }>("select key_enc from public.broker_credentials($1, $2)", [S, id]); expect(c.rows[0].key_enc).toBe("v1:iv:tag:ct");
+    });
+    await as(U2, async () => {
+      expect((await db.query("select id from public.broker_connections")).rows).toEqual([]);
+      expect((await db.query("select * from public.broker_credentials($1, $2)", [S, id])).rows).toEqual([]);
+      await db.query("delete from public.broker_connections where id = $1", [id]);
+    });
+    await as(U1, async () => {
+      await db.query("select public.broker_mark($1, $2, 'invalid', null, 'invalid_key')", [S, id]);
+      expect((await db.query("select status, bots_allowed, last_error from public.broker_connections")).rows).toEqual([{ status: "invalid", bots_allowed: false, last_error: "invalid_key" }]);
+      await db.query("delete from public.broker_connections where id = $1", [id]); expect((await db.query("select id from public.broker_connections")).rows).toEqual([]);
+    });
   });
 });

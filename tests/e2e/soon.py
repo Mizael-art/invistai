@@ -12,7 +12,7 @@ try:
         pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("request", lambda r: api.append(r.url) if "/api/" in r.url else None)
         pg.goto(B + "/aprender"); pg.wait_for_selector("h1")
         check("título 'Em breve' e rótulo Aprender", pg.inner_text("h1") == "Em breve" and "Aprender" in pg.inner_text(".soon .bd"))
-        check("menu continua visível e 'Aprender' ativo (sidebar)", pg.locator("aside a.nav").count() == 11 and pg.locator("aside a.nav.on").inner_text().strip() == "Aprender")
+        check("menu continua visível e 'Aprender' ativo (sidebar)", pg.locator("aside a.nav").count() == 12 and pg.locator("aside a.nav.on").inner_text().strip() == "Aprender")
         body = pg.inner_text("main")
         check("sem cursos/progresso/downloads/ebooks/checkout fictícios", not re.search(r"%|Baixar|Download|Assinar|Comprar|Ebook|PDF|concluíd", body, re.I) and pg.locator("table,progress,[role=progressbar]").count() == 0)
         check("apenas ações de navegação (Voltar e Início)", pg.locator("main button, main a").count() == 2 and pg.get_by_role("button", name=re.compile("Voltar")).count() == 1 and pg.get_by_role("link", name="Voltar ao Início").count() == 1)

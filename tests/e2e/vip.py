@@ -13,7 +13,7 @@ try:
         b = p.chromium.launch(); ctx = b.new_context(viewport={"width": 1440, "height": 900}); pg = ctx.new_page(); errs = []
         pg.on("pageerror", lambda e: errs.append(str(e)))
         pg.goto(B + "/vip"); pg.wait_for_selector("h1")
-        check("hub VIP com título e 'VIP' ativo no menu", pg.inner_text("h1") == "VIP" and pg.locator("aside a.nav").count() == 11 and pg.locator("aside a.nav.on").inner_text().strip() == "VIP")
+        check("hub VIP com título e 'VIP' ativo no menu", pg.inner_text("h1") == "VIP" and pg.locator("aside a.nav").count() == 12 and pg.locator("aside a.nav.on").inner_text().strip() == "VIP")
         check("Calls VIP disponível para PRO · MAX; Carteiras e Bots 'Em breve'", "PRO · MAX" in pg.get_by_test_id("vip-calls").inner_text() and "Em breve" in pg.get_by_test_id("vip-portfolios").inner_text() and "Em breve" in pg.get_by_test_id("vip-bots").inner_text())
         check("hub não expõe nenhuma call/nível", not re.search(LEVELS, pg.inner_text("main")))
         check("módulos em desenvolvimento não são links", pg.locator("[data-testid=vip-portfolios] a, a[data-testid=vip-portfolios], a[data-testid=vip-bots]").count() == 0)

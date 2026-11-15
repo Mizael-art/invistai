@@ -50,6 +50,40 @@ http.createServer(async (req, res) => {
     if (cat === "stocks") list.splice(2, 0, { ...mk(50), title: "Cripto 2" });   // título repetido de outra categoria
     return send(200, { status: "ok", articles: list.slice((page - 1) * size, page * size) });
   }
+  // ----- Corretoras (somente testes): Bybit v5 e Binance spot/futuros com verificação real da assinatura HMAC -----
+  if (u.pathname.startsWith("/bybitx/") || u.pathname.startsWith("/bnx/") || u.pathname.startsWith("/bnf/")) {
+    const { createHmac } = await import("node:crypto");
+    const KEYS = { TESTKEYBYBIT0001: { s: "TESTSECRETBYBIT0001", kind: "ok" }, WITHDRAWKEY00001: { s: "WITHDRAWSECRET0001", kind: "withdraw" }, TESTKEYBINANCE01: { s: "TESTSECRETBINANCE1", kind: "ok" }, BNWITHDRAWKEY001: { s: "BNWITHDRAWSECRET1", kind: "withdraw" } };
+    globalThis.__brokerCalls = (globalThis.__brokerCalls || 0) + 1;
+    if (u.pathname === "/bybitx/__state" || u.pathname === "/bnx/__state") return send(200, { calls: globalThis.__brokerCalls });
+    if (u.pathname.startsWith("/bybitx/")) {
+      const k = req.headers["x-bapi-api-key"], ts = req.headers["x-bapi-timestamp"], rw = req.headers["x-bapi-recv-window"], sig = req.headers["x-bapi-sign"]; const entry = KEYS[k];
+      const ok = entry && sig === createHmac("sha256", entry.s).update(ts + k + rw + u.search.slice(1)).digest("hex");
+      if (!ok) return send(200, { retCode: 10003, retMsg: "API key is invalid.", result: {} });
+      const R = (result) => send(200, { retCode: 0, retMsg: "OK", result, time: Date.now() }); const now = Date.now(); const p = u.pathname.replace("/bybitx", "");
+      if (p === "/v5/user/query-api") return R({ readOnly: 1, ips: ["*"], expiredAt: "", permissions: { ContractTrade: [], Spot: [], Wallet: entry.kind === "withdraw" ? ["AccountTransfer", "Withdraw"] : [], Options: [], Derivatives: [] } });
+      if (p === "/v5/account/wallet-balance") return R({ list: [{ accountType: "UNIFIED", totalEquity: "10523.45", totalWalletBalance: "10400.00", totalAvailableBalance: "8123.10", totalPerpUPL: "123.45", coin: [{ coin: "USDT", walletBalance: "8400", availableToWithdraw: "8123.1", usdValue: "8400", unrealisedPnl: "123.45" }, { coin: "BTC", walletBalance: "0.03", availableToWithdraw: "0.03", usdValue: "1923.45" }, { coin: "ETH", walletBalance: "0", usdValue: "0" }] }] });
+      if (p === "/v5/position/list") return R({ list: [{ symbol: "BTCUSDT", side: "Buy", size: "0.05", avgPrice: "62000", markPrice: "64469", unrealisedPnl: "123.45", leverage: "10", liqPrice: "56500", takeProfit: "70000", stopLoss: "60000", positionValue: "3100", createdTime: String(now - 864e5) }, { symbol: "ETHUSDT", side: "", size: "0", avgPrice: "0" }] });
+      if (p === "/v5/order/realtime") return R({ list: [{ orderId: "o-1", symbol: "SOLUSDT", side: "Buy", orderType: "Limit", price: "140.5", qty: "3", cumExecQty: "0", reduceOnly: false, createdTime: String(now - 36e5) }] });
+      if (p === "/v5/execution/list") return R({ list: u.searchParams.get("category") === "spot" ? [{ execId: "e-s1", symbol: "BTCUSDT", side: "Buy", execPrice: "61000", execQty: "0.03", execFee: "0.00003", feeCurrency: "BTC", execTime: String(now - 2 * 864e5) }]
+        : [{ execId: "e-1", symbol: "BTCUSDT", side: "Buy", execPrice: "62000", execQty: "0.05", execFee: "1.55", feeCurrency: "USDT", execTime: String(now - 864e5) }, { execId: "e-2", symbol: "ETHUSDT", side: "Sell", execPrice: "1800", execQty: "1", execFee: "0.9", feeCurrency: "USDT", execTime: String(now - 3 * 864e5) }] });
+      if (p === "/v5/position/closed-pnl") return R({ list: [{ symbol: "ETHUSDT", side: "Sell", closedSize: "1", avgEntryPrice: "1750", avgExitPrice: "1800", closedPnl: "48.2", updatedTime: String(now - 3 * 864e5) }, { symbol: "SOLUSDT", side: "Buy", closedSize: "5", avgEntryPrice: "150", avgExitPrice: "152", closedPnl: "-10.7", updatedTime: String(now - 4 * 864e5) }] });
+      return send(200, { retCode: 10001, retMsg: "unknown", result: {} });
+    }
+    // Binance
+    const k = req.headers["x-mbx-apikey"], entry = KEYS[k]; const p = u.pathname.replace(/^\/bn[xf]/, "");
+    if (p === "/api/v3/ticker/price") return send(200, [{ symbol: "BTCUSDT", price: "64000" }, { symbol: "ETHUSDT", price: "1800" }]);
+    const q = new URLSearchParams(u.search); const sig = q.get("signature"); q.delete("signature");
+    if (!entry || sig !== createHmac("sha256", entry.s).update(q.toString()).digest("hex")) return send(401, { code: -2014, msg: "API-key format invalid." });
+    if (p === "/sapi/v1/account/apiRestrictions") return send(200, { ipRestrict: false, enableReading: true, enableWithdrawals: entry.kind === "withdraw", enableSpotAndMarginTrading: false, enableFutures: false, createTime: Date.now() });
+    if (p === "/api/v3/account") return send(200, { balances: [{ asset: "BTC", free: "0.01", locked: "0" }, { asset: "USDT", free: "500", locked: "20" }] });
+    if (p === "/fapi/v2/account") return send(200, { totalWalletBalance: "1000", totalUnrealizedProfit: "-25.5", totalMarginBalance: "974.5", availableBalance: "800", assets: [{ asset: "USDT", walletBalance: "1000", availableBalance: "800" }] });
+    if (p === "/fapi/v2/positionRisk") return send(200, [{ symbol: "ETHUSDT", positionAmt: "-0.5", entryPrice: "1750", markPrice: "1801", unRealizedProfit: "-25.5", leverage: "5", liquidationPrice: "2100", notional: "-900.5" }, { symbol: "BTCUSDT", positionAmt: "0" }]);
+    if (p === "/fapi/v1/openOrders") return send(200, []);
+    if (p === "/fapi/v1/income") return send(200, [{ symbol: "ETHUSDT", incomeType: "REALIZED_PNL", income: "15.25", time: Date.now() - 2 * 864e5 }]);
+    if (p === "/fapi/v1/userTrades") return send(200, [{ id: 77, symbol: q.get("symbol"), side: "SELL", price: "1750", qty: "0.5", commission: "0.35", commissionAsset: "USDT", time: Date.now() - 864e5 }]);
+    return send(404, { code: -1, msg: "unknown" });
+  }
   // ----- Binance data-api (somente testes): velas sintéticas determinísticas por símbolo -----
   if (u.pathname.startsWith("/binance/")) {
     const KNOWN = { BTCUSDT: [60000, 1], ETHUSDT: [3000, -1], SOLUSDT: [150, 1], XRPUSDT: [0.6, 0], DOGEUSDT: [0.12, -1], USDCUSDT: [1, 0], ETHBTC: [0.05, 0] };
