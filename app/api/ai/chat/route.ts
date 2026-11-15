@@ -4,7 +4,7 @@ import { sameOrigin } from "@/lib/originCheck";
 import { rateLimit } from "@/lib/rateLimit";
 import { getSupabase } from "@/lib/supabase/server";
 import { getEntitlements } from "@/services/subscription";
-import { llmEnv, llmFallbackEnv, retriable, runChat, LlmError, type ChatTurn, type LlmEnv, type RunResult } from "@/lib/ai/llm";
+import { llmEnv, llmChain, retriable, runChat, LlmError, type ChatTurn, type LlmEnv, type RunResult } from "@/lib/ai/llm";
 import { systemPrompt, trainingBlock } from "@/lib/ai/prompt";
 import { kbSearch, loadTraining } from "@/lib/ai/knowledge";
 import { getPrefs } from "@/lib/i18n/server";
@@ -55,13 +55,15 @@ export async function POST(req: Request) {
     const system = systemPrompt({ plan: ent.plan, lang }) + trainingBlock(training, hits);
     const ctx = { userId: ent.user.id, lang, kb: (q: string) => kbSearch(sb, secret, q, 4) };
     const turns: ChatTurn[] = [...history, { role: "user", content: p.data.message }];
-    let used: LlmEnv = env; let r: RunResult;
-    const fbEnv = llmFallbackEnv();
-    try { r = await runChat(env, system, turns, ctx, fbEnv ? 30_000 : 55_000); }
-    catch (e) {
-      const fb = fbEnv; if (!fb || !(e instanceof LlmError) || !retriable(e.code)) throw e;
-      await log("error", { err: `primary_${e.code}`, ms: Date.now() - t0 }); used = fb; r = await runChat(fb, system, turns, ctx, 25_000);
+    // Tenta a cadeia de modelos dentro do limite da função (~55 s): limite/queda de um modelo passa para o próximo.
+    const chain = llmChain(); const deadline = t0 + 54_000; let used: LlmEnv = env; let r: RunResult | null = null; let last: unknown = null;
+    for (let i = 0; i < chain.length && !r; i++) {
+      const left = deadline - Date.now(); if (left < 6_000) break;
+      const cur = chain[i]; const budget = i === chain.length - 1 ? left : Math.min(left, i === 0 ? 30_000 : 22_000);
+      try { r = await runChat(cur, system, turns, ctx, budget); used = cur; }
+      catch (e) { last = e; if (!(e instanceof LlmError) || !retriable(e.code)) throw e; await logAs(cur, "error", { err: `${i === 0 ? "primary" : "chain"}_${e.code}`, ms: Date.now() - t0 }); }
     }
+    if (!r) throw last instanceof LlmError ? last : new LlmError("timeout");
     const { data: am, error: ae } = await sb.from("ai_messages").insert({ conversation_id: convId, user_id: ent.user.id, role: "assistant", content: r.text.slice(0, 24000), blocks: r.blocks }).select("id,created_at").single();
     if (ae || !am) throw new LlmError("persist_failed");
     await sb.from("ai_conversations").update({ updated_at: new Date().toISOString() }).eq("id", convId);
